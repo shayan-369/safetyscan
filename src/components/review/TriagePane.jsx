@@ -16,12 +16,26 @@ function Flag({ label, value }) {
   );
 }
 
-export default function TriagePane({ triage, comment, setComment, overrideCategory, setOverrideCategory, onDecide, onRetriage, busy }) {
+export default function TriagePane({
+  triage,
+  comment,
+  setComment,
+  overrideCategory,
+  setOverrideCategory,
+  onDecide,
+  onRetriage,
+  busy,
+  openOverrideSignal,
+}) {
   const [showOverride, setShowOverride] = useState(false);
 
   useEffect(() => {
     setShowOverride(false);
   }, [triage?.id]);
+
+  useEffect(() => {
+    if (openOverrideSignal) setShowOverride(true);
+  }, [openOverrideSignal]);
 
   if (!triage) {
     return (

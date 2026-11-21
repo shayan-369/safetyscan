@@ -1,5 +1,9 @@
 export const PV_ROLES = ["PV Associate", "Medical Reviewer", "Admin", "Inspector"];
 
+export function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function pvRoleOf(user) {
   return user?.pv_role || (user?.role === "admin" ? "Admin" : "PV Associate");
 }
@@ -110,6 +114,22 @@ export function computeDueDate({ seriousness, occurred_in, expectedness, dayZero
   const qualifies = occurred_in === "Canada" || expectedness === "Unexpected";
   if (!serious || !qualifies || !dayZero) return null;
   return toDateInput(addDays(new Date(dayZero), 15));
+}
+
+/** Gaps between consecutive runs, so coverage never silently skips a period. */
+export function findRunGaps(runs) {
+  const ordered = [...runs]
+    .filter((r) => r.date_range_start && r.date_range_end)
+    .sort((a, b) => new Date(a.date_range_start) - new Date(b.date_range_start));
+  const gaps = [];
+  for (let i = 1; i < ordered.length; i += 1) {
+    const previousEnd = new Date(`${ordered[i - 1].date_range_end}T00:00:00Z`);
+    const nextStart = new Date(`${ordered[i].date_range_start}T00:00:00Z`);
+    const expected = new Date(previousEnd);
+    expected.setUTCDate(expected.getUTCDate() + 1);
+    if (nextStart > expected) gaps.push({ from: ordered[i - 1].date_range_end, to: ordered[i].date_range_start });
+  }
+  return gaps;
 }
 
 export function initials(name = "") {

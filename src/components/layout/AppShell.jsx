@@ -1,5 +1,10 @@
-import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import { startWeeklyRun } from "@/lib/server-fns";
+import { pvRoleOf } from "@/lib/pv";
 import {
   Activity,
   ClipboardCheck,
@@ -38,7 +43,24 @@ export default function AppShell({ children }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [moreOpen, setMoreOpen] = useState(false);
 
-  const role = user?.pv_role || (user?.role === "admin" ? "Admin" : "PV Associate");
+  const role = pvRoleOf(user);
+  const queryClient = useQueryClient();
+  const startRun = useServerFn(startWeeklyRun);
+  const [starting, setStarting] = useState(false);
+
+  const launchRun = async () => {
+    setStarting(true);
+    try {
+      const result = await startRun({});
+      toast.success(`Weekly run started: ${result.totalHits} records, ${result.sentToReview} sent to review.`);
+      queryClient.invalidateQueries({ queryKey: ["pv"] });
+      navigate({ to: "/runs" });
+    } catch (error) {
+      toast.error(error?.message || "Could not start the weekly run.");
+    } finally {
+      setStarting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -64,12 +86,15 @@ export default function AppShell({ children }) {
           <span className="hidden rounded border border-white/20 px-2 py-0.5 text-[10px] font-semibold text-white/80 sm:inline-block">
             {role}
           </span>
-          <Link
-            to="/runs"
-            className="hidden rounded bg-[#0D9488] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#0B7F76] sm:inline-block"
-          >
-            Start weekly run
-          </Link>
+          {role !== "Inspector" && (
+            <button
+              onClick={launchRun}
+              disabled={starting}
+              className="hidden rounded bg-[#0D9488] px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-[#0B7F76] disabled:opacity-60 sm:inline-block"
+            >
+              {starting ? "Searching…" : "Start weekly run"}
+            </button>
+          )}
           <button
             onClick={() => logout()}
             className="rounded p-1.5 text-white/70 hover:bg-white/10 hover:text-white"

@@ -5,7 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Play, AlertTriangle, ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
-import { formatDate, pvRoleOf, RUN_STATUS_TONE } from "@/lib/pv";
+import { findRunGaps, formatDate, pvRoleOf, RUN_STATUS_TONE } from "@/lib/pv";
 import { useRuns, useStrategies } from "@/hooks/usePv";
 import { startWeeklyRun } from "@/lib/server-fns";
 import PageHeader from "@/components/pv/PageHeader";
@@ -16,23 +16,6 @@ export const Route = createFileRoute("/_authed/runs")({
   component: RunsPage,
 });
 
-function findGaps(runs) {
-  const ordered = [...runs]
-    .filter((r) => r.date_range_start && r.date_range_end)
-    .sort((a, b) => new Date(a.date_range_start) - new Date(b.date_range_start));
-  const gaps = [];
-  for (let i = 1; i < ordered.length; i += 1) {
-    const previousEnd = new Date(`${ordered[i - 1].date_range_end}T00:00:00Z`);
-    const nextStart = new Date(`${ordered[i].date_range_start}T00:00:00Z`);
-    const expected = new Date(previousEnd);
-    expected.setUTCDate(expected.getUTCDate() + 1);
-    if (nextStart > expected) {
-      gaps.push({ from: ordered[i - 1].date_range_end, to: ordered[i].date_range_start });
-    }
-  }
-  return gaps;
-}
-
 function RunsPage() {
   const { user } = useAuth();
   const canWrite = pvRoleOf(user) !== "Inspector";
@@ -42,7 +25,7 @@ function RunsPage() {
   const [starting, setStarting] = useState(false);
   const startRun = useServerFn(startWeeklyRun);
 
-  const gaps = findGaps(runs);
+  const gaps = findRunGaps(runs);
 
   const run = async () => {
     setStarting(true);
