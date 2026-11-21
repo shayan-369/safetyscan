@@ -1,0 +1,144 @@
+{
+  "name": "AnnualReport",
+  "type": "object",
+  "properties": {
+    "product": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date",
+      "description": "Per-product data lock point"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Data lock point + 70 days"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Draft",
+        "Awaiting sign-off",
+        "Signed"
+      ],
+      "enumColors": [
+        "gray",
+        "yellow",
+        "green"
+      ]
+    },
+    "line_listing": {
+      "type": "string"
+    },
+    "literature_findings": {
+      "type": "string"
+    },
+    "signals_summary": {
+      "type": "string"
+    },
+    "special_situations_summary": {
+      "type": "string"
+    },
+    "label_changes": {
+      "type": "string"
+    },
+    "critical_analysis": {
+      "type": "string",
+      "description": "AI-drafted concise critical analysis"
+    },
+    "significant_change": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no"
+      ],
+      "enumColors": [
+        "red",
+        "gray"
+      ]
+    },
+    "rationale": {
+      "type": "string"
+    },
+    "signed_by": {
+      "type": "string"
+    },
+    "signed_role": {
+      "type": "string"
+    },
+    "signed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nullified": {
+      "type": "boolean",
+      "default": false
+    },
+    "nullified_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product",
+    "period_start",
+    "period_end",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

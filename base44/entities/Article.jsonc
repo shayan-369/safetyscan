@@ -24,6 +24,10 @@
     "pmid": {
       "type": "string"
     },
+    "pmc_id": {
+      "type": "string",
+      "description": "PubMed Central identifier when available"
+    },
     "doi": {
       "type": "string"
     },
@@ -42,8 +46,33 @@
     "abstract": {
       "type": "string"
     },
+    "abstract_language": {
+      "type": "string",
+      "description": "Detected language of the abstract"
+    },
+    "abstract_translation": {
+      "type": "string",
+      "description": "English translation when the abstract is not in English or French"
+    },
     "full_text_url": {
       "type": "string"
+    },
+    "full_text_status": {
+      "type": "string",
+      "enum": [
+        "Not needed",
+        "Requested",
+        "Received"
+      ],
+      "enumColors": [
+        "gray",
+        "yellow",
+        "green"
+      ]
+    },
+    "full_text_file_uri": {
+      "type": "string",
+      "description": "Private upload of the full text PDF"
     },
     "country": {
       "type": "string"
@@ -58,20 +87,33 @@
       "type": "string",
       "description": "Earlier Article id this record duplicates"
     },
+    "duplicate_reason": {
+      "type": "string",
+      "description": "Why the record matched: PMID, DOI, exact title, fuzzy title or existing case"
+    },
     "status": {
       "type": "string",
       "enum": [
         "New",
         "AI Triaged",
         "In Review",
-        "Decided"
+        "Decided",
+        "Nullified"
       ],
       "enumColors": [
         "gray",
         "blue",
         "yellow",
-        "green"
+        "green",
+        "red"
       ]
+    },
+    "nullified": {
+      "type": "boolean",
+      "default": false
+    },
+    "nullified_reason": {
+      "type": "string"
     }
   },
   "required": [

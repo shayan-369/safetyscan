@@ -1,0 +1,82 @@
+{
+  "name": "ValidationRun",
+  "type": "object",
+  "properties": {
+    "run_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "prompt_version": {
+      "type": "string"
+    },
+    "ai_model": {
+      "type": "string"
+    },
+    "total_fields": {
+      "type": "number"
+    },
+    "passed_fields": {
+      "type": "number"
+    },
+    "accuracy": {
+      "type": "number"
+    },
+    "results": {
+      "type": "string",
+      "description": "JSON array of per-article field results"
+    },
+    "agreement_rate": {
+      "type": "number"
+    },
+    "override_rate": {
+      "type": "number"
+    },
+    "performed_by": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_date",
+    "accuracy"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

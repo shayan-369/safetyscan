@@ -9,6 +9,10 @@
     "article": {
       "type": "string"
     },
+    "patient_index": {
+      "type": "number",
+      "description": "Position of the patient in the article patient list"
+    },
     "product": {
       "type": "string"
     },
@@ -37,13 +41,37 @@
       ]
     },
     "reporter": {
-      "type": "string",
-      "description": "Article authors"
+      "type": "string"
     },
     "reactions": {
       "type": "array",
       "items": {
         "type": "string"
+      }
+    },
+    "reactions_coded": {
+      "type": "array",
+      "description": "Per reaction coding record",
+      "items": {
+        "type": "object",
+        "properties": {
+          "verbatim": {
+            "type": "string"
+          },
+          "ai_pt": {
+            "type": "string",
+            "description": "AI-suggested MedDRA Preferred Term, unverified"
+          },
+          "reviewer_pt": {
+            "type": "string"
+          },
+          "meddra_version": {
+            "type": "string"
+          },
+          "confirmed": {
+            "type": "boolean"
+          }
+        }
       }
     },
     "seriousness": {
@@ -65,6 +93,13 @@
         "type": "string"
       }
     },
+    "seriousness_reason": {
+      "type": "string",
+      "description": "Written reason for a Medical Reviewer change"
+    },
+    "seriousness_changed_by": {
+      "type": "string"
+    },
     "expectedness": {
       "type": "string",
       "enum": [
@@ -77,6 +112,24 @@
         "yellow",
         "yellow"
       ]
+    },
+    "expectedness_effective": {
+      "type": "string",
+      "enum": [
+        "Expected",
+        "Unexpected"
+      ],
+      "enumColors": [
+        "green",
+        "yellow"
+      ],
+      "description": "Unclear is treated as Unexpected for reportability"
+    },
+    "expectedness_note": {
+      "type": "string"
+    },
+    "fatal_outcome": {
+      "type": "boolean"
     },
     "occurred_in": {
       "type": "string",
@@ -91,18 +144,27 @@
         "yellow"
       ]
     },
+    "market_same_combination": {
+      "type": "boolean"
+    },
     "day_zero": {
       "type": "string",
-      "format": "date",
-      "description": "Date all four minimum criteria were first known"
+      "format": "date"
     },
     "due_date": {
       "type": "string",
-      "format": "date",
-      "description": "day zero + 15 calendar days when reportable"
+      "format": "date"
     },
     "reportable_to_health_canada": {
       "type": "boolean"
+    },
+    "reportability_rule": {
+      "type": "string",
+      "description": "Which rule fired"
+    },
+    "reportability_basis": {
+      "type": "string",
+      "description": "Plain-language explanation shown on the case"
     },
     "brand_identified": {
       "type": "string",
@@ -115,6 +177,66 @@
         "yellow"
       ]
     },
+    "suspect_per_author": {
+      "type": "boolean"
+    },
+    "not_our_product": {
+      "type": "boolean"
+    },
+    "exclusion_reason": {
+      "type": "string",
+      "enum": [
+        "Country of marketing",
+        "Product name",
+        "Active ingredient",
+        "Pharmaceutical form",
+        "Batch number",
+        "Marketing status",
+        "Other"
+      ],
+      "enumColors": [
+        "gray",
+        "gray",
+        "gray",
+        "gray",
+        "gray",
+        "gray",
+        "gray"
+      ]
+    },
+    "exclusion_detail": {
+      "type": "string"
+    },
+    "day0_reporter": {
+      "type": "boolean"
+    },
+    "day0_patient": {
+      "type": "boolean"
+    },
+    "day0_product": {
+      "type": "boolean"
+    },
+    "day0_reaction": {
+      "type": "boolean"
+    },
+    "day0_change_reason": {
+      "type": "string"
+    },
+    "version": {
+      "type": "number",
+      "default": 1
+    },
+    "initial_case": {
+      "type": "string",
+      "description": "First version of this case"
+    },
+    "previous_version": {
+      "type": "string"
+    },
+    "received_date": {
+      "type": "string",
+      "format": "date"
+    },
     "narrative": {
       "type": "string",
       "description": "AI-drafted narrative, editable by reviewers"
@@ -124,8 +246,9 @@
       "enum": [
         "Draft",
         "Medical Review",
-        "Ready to Submit",
+        "Approved",
         "Submitted",
+        "Follow-up",
         "Closed"
       ],
       "enumColors": [
@@ -133,12 +256,104 @@
         "yellow",
         "blue",
         "purple",
+        "pink",
         "green"
+      ]
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "approved_role": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "medical_assessment_confirmed": {
+      "type": "boolean"
+    },
+    "submission_method": {
+      "type": "string",
+      "enum": [
+        "Electronic E2B",
+        "Paper - fax",
+        "Paper - mail"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "purple"
       ]
     },
     "submitted_date": {
       "type": "string",
       "format": "date"
+    },
+    "health_canada_ack": {
+      "type": "string",
+      "description": "Health Canada acknowledgement or AER number"
+    },
+    "full_text_status": {
+      "type": "string",
+      "enum": [
+        "Not needed",
+        "Requested",
+        "Received"
+      ],
+      "enumColors": [
+        "gray",
+        "yellow",
+        "green"
+      ]
+    },
+    "full_text_exempt_reason": {
+      "type": "string"
+    },
+    "special_situations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "relevant_for_asr": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no"
+      ],
+      "enumColors": [
+        "blue",
+        "gray"
+      ]
+    },
+    "nhp_npn": {
+      "type": "string"
+    },
+    "latin_binomial": {
+      "type": "string"
+    },
+    "plant_part": {
+      "type": "string"
+    },
+    "extract_type": {
+      "type": "string"
+    },
+    "solvent": {
+      "type": "string"
+    },
+    "ingredients_quantities": {
+      "type": "string"
+    },
+    "homeopathic_potency": {
+      "type": "string"
+    },
+    "nullified": {
+      "type": "boolean",
+      "default": false
+    },
+    "nullified_reason": {
+      "type": "string"
     }
   },
   "required": [

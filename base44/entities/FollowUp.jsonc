@@ -1,0 +1,134 @@
+{
+  "name": "FollowUp",
+  "type": "object",
+  "properties": {
+    "case": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Author contact",
+        "Full text",
+        "Translation",
+        "Other"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "teal",
+        "gray"
+      ]
+    },
+    "date_requested": {
+      "type": "string",
+      "format": "date"
+    },
+    "method": {
+      "type": "string",
+      "description": "Email, phone, journal form, publisher site\u2026"
+    },
+    "sent_to": {
+      "type": "string"
+    },
+    "response_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "Awaiting reply",
+        "Received",
+        "No reply",
+        "Refused",
+        "Closed"
+      ],
+      "enumColors": [
+        "yellow",
+        "green",
+        "red",
+        "gray",
+        "gray"
+      ]
+    },
+    "significant_new_info": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no"
+      ],
+      "enumColors": [
+        "red",
+        "gray"
+      ]
+    },
+    "notes": {
+      "type": "string"
+    },
+    "logged_by": {
+      "type": "string"
+    },
+    "nullified": {
+      "type": "boolean",
+      "default": false
+    },
+    "nullified_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "case",
+    "type",
+    "date_requested"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

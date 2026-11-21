@@ -1,0 +1,126 @@
+{
+  "name": "ForeignAction",
+  "type": "object",
+  "properties": {
+    "authority": {
+      "type": "string",
+      "description": "FDA, EMA, MHRA or other regulator"
+    },
+    "awareness_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "product": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "serious_risk_to_canada": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no",
+        "unclear"
+      ],
+      "enumColors": [
+        "red",
+        "gray",
+        "yellow"
+      ]
+    },
+    "relevance_decided_by": {
+      "type": "string"
+    },
+    "relevance_rationale": {
+      "type": "string"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Awareness date + 72 hours"
+    },
+    "notified_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Open",
+        "Notified",
+        "Closed"
+      ],
+      "enumColors": [
+        "red",
+        "green",
+        "gray"
+      ]
+    },
+    "nullified": {
+      "type": "boolean",
+      "default": false
+    },
+    "nullified_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "authority",
+    "awareness_date",
+    "product",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_authed/cases")({
   component: CasesPage,
 });
 
-const STATUSES = ["All", "Draft", "Medical Review", "Ready to Submit", "Submitted", "Closed"];
+const STATUSES = ["All", "Draft", "Medical Review", "Approved", "Submitted", "Follow-up", "Closed"];
 
 function CasesPage() {
   const { data: cases = [], isLoading } = useCases();

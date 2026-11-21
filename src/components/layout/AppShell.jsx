@@ -7,9 +7,12 @@ import { startWeeklyRun } from "@/lib/server-fns";
 import { pvRoleOf } from "@/lib/pv";
 import {
   Activity,
+  BadgeCheck,
+  BookOpenCheck,
   ClipboardCheck,
   FileBarChart,
   FolderOpen,
+  Globe2,
   LayoutDashboard,
   Menu,
   Pill,
@@ -30,6 +33,9 @@ export const NAV = [
   { to: "/review", label: "Review queue", icon: ClipboardCheck },
   { to: "/cases", label: "Cases", icon: FolderOpen },
   { to: "/signals", label: "Signals", icon: Activity },
+  { to: "/foreign-actions", label: "Foreign actions", icon: Globe2 },
+  { to: "/annual-report", label: "Annual report", icon: BookOpenCheck },
+  { to: "/validation", label: "Validation", icon: BadgeCheck },
   { to: "/audit", label: "Audit trail", icon: ScrollText },
   { to: "/reports", label: "Reports", icon: FileBarChart },
   { to: "/settings", label: "Settings", icon: SettingsIcon },
@@ -131,7 +137,13 @@ export default function AppShell({ children }) {
       </aside>
 
       <main className="pb-20 pt-12 lg:pb-8 lg:pl-16">
-        <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6">{children}</div>
+        <div className="mx-auto w-full max-w-[1440px] px-4 py-5 sm:px-6">
+          {children}
+          <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3 text-[10.5px] text-[#94A3B8]">
+            <span>Records retained 25 years · Health Canada inspection ready</span>
+            <span>Food and Drug Regulations C.01.017 to C.01.020 and C.01.050 · GUI-0102</span>
+          </footer>
+        </div>
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-stretch border-t border-[#E2E8F0] bg-white lg:hidden">

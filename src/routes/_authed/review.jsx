@@ -6,11 +6,15 @@ import { toast } from "sonner";
 import { ClipboardCheck } from "lucide-react";
 import { useQueueData } from "@/hooks/usePv";
 import { decideArticle, retriageArticle } from "@/lib/server-fns";
+import { markArticleInReview } from "@/lib/icsr-fns";
 import { CATEGORY_ORDER, CATEGORY_TONE } from "@/lib/pv";
 import PageHeader from "@/components/pv/PageHeader";
 import StatusPill from "@/components/pv/StatusPill";
 import ArticlePane from "@/components/review/ArticlePane";
 import TriagePane from "@/components/review/TriagePane";
+import FullTextCard from "@/components/review/FullTextCard";
+import PatientsCard from "@/components/review/PatientsCard";
+import NotOurProductDialog from "@/components/review/NotOurProductDialog";
 
 export const Route = createFileRoute("/_authed/review")({
   head: () => ({ meta: [{ title: "Review queue · SafetyScan PV" }] }),
@@ -22,6 +26,7 @@ function ReviewPage() {
   const { data, isLoading } = useQueueData();
   const decideFn = useServerFn(decideArticle);
   const retriageFn = useServerFn(retriageArticle);
+  const inReviewFn = useServerFn(markArticleInReview);
 
   const [handled, setHandled] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -29,6 +34,7 @@ function ReviewPage() {
   const [overrideCategory, setOverrideCategory] = useState("Potential Reportable Case");
   const [overrideSignal, setOverrideSignal] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [notOurOpen, setNotOurOpen] = useState(false);
 
   const articles = data?.articles ?? [];
   const triages = data?.triages ?? [];
@@ -62,6 +68,11 @@ function ReviewPage() {
   useEffect(() => {
     setComment("");
     setOverrideCategory(selectedTriage?.category || "Potential Reportable Case");
+    if (selected?.id) {
+      inReviewFn({ data: { articleId: selected.id } })
+        .then(() => queryClient.invalidateQueries({ queryKey: ["pv", "queue"] }))
+        .catch(() => {});
+    }
   }, [selected?.id, selectedTriage?.category]);
 
   const move = (direction) => {
@@ -71,12 +82,12 @@ function ReviewPage() {
     setSelectedId(next?.id ?? null);
   };
 
-  const decide = async (decision, category) => {
+  const decide = async (decision, category, options = {}) => {
     if (!selected || !selectedTriage) {
       toast.error("Run the AI triage first.");
       return;
     }
-    if (decision === "Override" && !comment.trim()) {
+    if (decision === "Override" && !options.notOurProduct && !comment.trim()) {
       toast.error("Add a comment explaining the override.");
       return;
     }
@@ -89,13 +100,20 @@ function ReviewPage() {
           finalCategory: category,
           comment: comment.trim(),
           qcSample: !!selectedTriage.qc_sample,
+          ...options,
         },
       });
       setHandled((prev) => [...prev, selected.id]);
+      setNotOurOpen(false);
+      const created = result.caseNumbers?.length || 0;
       toast.success(
-        result.caseNumber
-          ? `Decision recorded · case ${result.caseNumber} created with a 15-day clock`
-          : "Decision recorded",
+        result.notOurProduct
+          ? "Recorded as not our product with the exclusion reason"
+          : created
+            ? `Decision recorded · ${created} case${created === 1 ? "" : "s"} created, one per patient`
+            : result.taskId
+              ? "Follow-up task created: contact author for individual patient details"
+              : "Decision recorded",
       );
       queryClient.invalidateQueries({ queryKey: ["pv"] });
     } catch (error) {
@@ -223,11 +241,12 @@ function ReviewPage() {
             </div>
           </div>
 
-          <div className="lg:col-span-5">
+          <div className="space-y-4 lg:col-span-5">
             <ArticlePane article={selected} triage={selectedTriage} products={products} />
+            <FullTextCard article={selected} onSaved={() => queryClient.invalidateQueries({ queryKey: ["pv"] })} />
           </div>
 
-          <div className="lg:col-span-4">
+          <div className="space-y-4 lg:col-span-4">
             <TriagePane
               triage={selectedTriage}
               comment={comment}
@@ -239,9 +258,17 @@ function ReviewPage() {
               busy={busy}
               openOverrideSignal={overrideSignal}
             />
+            <PatientsCard triage={selectedTriage} onNotOurProduct={() => setNotOurOpen(true)} />
           </div>
         </div>
       )}
+
+      <NotOurProductDialog
+        open={notOurOpen}
+        onOpenChange={setNotOurOpen}
+        busy={busy}
+        onSubmit={(values) => decide("Override", "Not Relevant", { notOurProduct: true, ...values })}
+      />
     </>
   );
 }

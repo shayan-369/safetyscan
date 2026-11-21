@@ -9,8 +9,10 @@ import { useAuth } from "@/lib/AuthContext";
 import { pvRoleOf, PV_ROLES } from "@/lib/pv";
 import { asList, useSettings } from "@/hooks/usePv";
 import { saveSettings, sendDueCaseAlerts, setUserRole } from "@/lib/server-fns";
+import { setReviewerQualification } from "@/lib/icsr-fns";
 import PageHeader from "@/components/pv/PageHeader";
 import StatusPill from "@/components/pv/StatusPill";
+import TriageChangeLogCard from "@/components/settings/TriageChangeLogCard";
 
 export const Route = createFileRoute("/_authed/settings")({
   head: () => ({ meta: [{ title: "Settings · SafetyScan PV" }] }),
@@ -28,9 +30,11 @@ function SettingsPage() {
   const saveFn = useServerFn(saveSettings);
   const alertFn = useServerFn(sendDueCaseAlerts);
   const roleFn = useServerFn(setUserRole);
+  const qualificationFn = useServerFn(setReviewerQualification);
 
   const [form, setForm] = useState({
     search_frequency: "Weekly",
+    frequency_rationale: "",
     confidence_threshold: 85,
     qc_sample_percentage: 10,
     email_alerts: true,
@@ -43,6 +47,7 @@ function SettingsPage() {
     if (!settings) return;
     setForm({
       search_frequency: settings.search_frequency || "Weekly",
+      frequency_rationale: settings.frequency_rationale || "",
       confidence_threshold: settings.confidence_threshold ?? 85,
       qc_sample_percentage: settings.qc_sample_percentage ?? 10,
       email_alerts: settings.email_alerts !== false,
@@ -64,6 +69,7 @@ function SettingsPage() {
         data: {
           id: settings?.id,
           search_frequency: form.search_frequency,
+          frequency_rationale: form.frequency_rationale,
           confidence_threshold: Number(form.confidence_threshold),
           qc_sample_percentage: Number(form.qc_sample_percentage),
           email_alerts: form.email_alerts,
@@ -102,6 +108,17 @@ function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["pv", "users"] });
     } catch (error) {
       toast.error(error?.message || "Could not change the role.");
+    }
+  };
+
+  const qualify = async (userId, qualification) => {
+    if (!qualification) return;
+    try {
+      await qualificationFn({ data: { userId, qualification } });
+      toast.success("Qualification recorded");
+      queryClient.invalidateQueries({ queryKey: ["pv", "users"] });
+    } catch (error) {
+      toast.error(error?.message || "Could not record the qualification.");
     }
   };
 
@@ -146,9 +163,19 @@ function SettingsPage() {
                 disabled={!isAdmin}
               >
                 <option>Weekly</option>
-                <option>Bi-weekly</option>
+                <option>Every 2 weeks</option>
                 <option>Monthly</option>
               </select>
+              {form.search_frequency === "Monthly" && (
+                <textarea
+                  value={form.frequency_rationale}
+                  onChange={(e) => setForm((prev) => ({ ...prev, frequency_rationale: e.target.value }))}
+                  rows={2}
+                  placeholder="Written risk-based rationale (required for intervals longer than every 2 weeks)"
+                  className="mt-1 w-full rounded-md border border-[#E2E8F0] p-2 text-[11.5px]"
+                  disabled={!isAdmin}
+                />
+              )}
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold text-[#475569]">Auto-exclude confidence threshold</label>
@@ -245,15 +272,30 @@ function SettingsPage() {
                   <p className="truncate text-[10.5px] text-[#64748B]">{member.email}</p>
                 </div>
                 {isAdmin ? (
-                  <select
-                    value={member.pv_role || (member.role === "admin" ? "Admin" : "PV Associate")}
-                    onChange={(e) => assignRole(member.id, e.target.value)}
-                    className="h-8 rounded-md border border-[#E2E8F0] bg-white px-2 text-[11px]"
-                  >
-                    {PV_ROLES.map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </select>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <select
+                      value={member.pv_role || (member.role === "admin" ? "Admin" : "PV Associate")}
+                      onChange={(e) => assignRole(member.id, e.target.value)}
+                      className="h-8 rounded-md border border-[#E2E8F0] bg-white px-2 text-[11px]"
+                    >
+                      {PV_ROLES.map((option) => (
+                        <option key={option}>{option}</option>
+                      ))}
+                    </select>
+                    {(member.pv_role === "Medical Reviewer" || member.pv_role === "Admin") && (
+                      <select
+                        value={member.pv_qualification || ""}
+                        onChange={(e) => qualify(member.id, e.target.value)}
+                        className="h-8 rounded-md border border-[#E2E8F0] bg-white px-1.5 text-[11px]"
+                      >
+                        <option value="">Qualification…</option>
+                        <option>Physician</option>
+                        <option>Pharmacist</option>
+                        <option>Nurse</option>
+                        <option>Other</option>
+                      </select>
+                    )}
+                  </div>
                 ) : (
                   <StatusPill tone="slate">{member.pv_role || "PV Associate"}</StatusPill>
                 )}
@@ -271,6 +313,8 @@ function SettingsPage() {
           </p>
         </section>
       </div>
+
+      <TriageChangeLogCard canWrite={isAdmin} canMedical={isAdmin} />
     </>
   );
 }

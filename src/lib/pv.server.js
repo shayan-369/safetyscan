@@ -208,6 +208,23 @@ export function parseImport(text, format) {
 
 /* ------------------------------- AI triage ------------------------------- */
 
+export const TRIAGE_PROMPT_VERSION = "v2-2026-02";
+export const TRIAGE_AI_MODEL = "automatic";
+
+const PATIENT_SCHEMA = {
+  type: "object",
+  properties: {
+    descriptor: { type: "string", description: "e.g. 58-year-old woman from Toronto" },
+    age: { type: "number" },
+    sex: { type: "string", enum: ["Female", "Male", "Other", "Unknown"] },
+    reactions: { type: "array", items: { type: "string" } },
+    outcome: { type: "string" },
+    country: { type: "string" },
+    fatal_outcome: { type: "boolean" },
+  },
+  required: ["descriptor"],
+};
+
 const TRIAGE_SCHEMA = {
   type: "object",
   properties: {
@@ -236,12 +253,62 @@ const TRIAGE_SCHEMA = {
           identifiable_patient: { type: "boolean" },
           identifiable_reporter: { type: "boolean" },
           suspect_product_named: { type: "boolean" },
+          suspect_per_author: {
+            type: "boolean",
+            description: "The author names our product as the suspect product",
+          },
           brand_identified: { type: "string", enum: ["yes", "no"] },
           reactions: { type: "array", items: { type: "string" } },
+          reactions_coded: {
+            type: "array",
+            description: "Verbatim reaction term with the closest MedDRA Preferred Term",
+            items: {
+              type: "object",
+              properties: {
+                verbatim: { type: "string" },
+                ai_pt: { type: "string" },
+              },
+              required: ["verbatim", "ai_pt"],
+            },
+          },
+          patients: {
+            type: "array",
+            description: "One entry per individually identifiable patient. Empty when no individual patient is described.",
+            items: PATIENT_SCHEMA,
+          },
+          several_patients_unnamed: {
+            type: "boolean",
+            description: "True when the article mentions several patients but gives no individual details",
+          },
           seriousness: { type: "string", enum: ["Serious", "Non-serious", "Unclear"] },
           seriousness_criteria: { type: "array", items: { type: "string" } },
           expectedness: { type: "string", enum: ["Expected", "Unexpected", "Unclear"] },
           occurred_in: { type: "string", enum: ["Canada", "Foreign", "Unknown"] },
+          special_situations: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: [
+                "Pregnancy or breastfeeding exposure",
+                "Medication error",
+                "Misuse or abuse",
+                "Off-label use",
+                "Overdose",
+                "Lack of efficacy",
+                "Drug interaction",
+              ],
+            },
+          },
+          relevant_for_asr: {
+            type: "string",
+            enum: ["yes", "no"],
+            description: "Relevant for the Annual Summary Report even when there is no case",
+          },
+          detected_language: { type: "string", description: "Language of the abstract, e.g. English, Spanish" },
+          abstract_translation: {
+            type: "string",
+            description: "English translation of the abstract when it is not in English or French, otherwise empty",
+          },
           confidence: { type: "number", description: "0-100 confidence in this triage" },
           evidence_quotes: {
             type: "array",
@@ -268,31 +335,35 @@ Products under surveillance that matched: ${item.products
           (p) =>
             `${p.brand_name} (ingredients: ${(p.active_ingredients || []).join(", ") || "n/a"}; also known as: ${(
               p.synonyms || []
-            ).join(", ") || "none"}; reactions already in the Canadian label: ${(p.labelled_reactions || []).join(", ") || "none"})`,
+            ).join(", ") || "none"}; reactions already in the Canadian label: ${(p.labelled_reactions || []).join(", ") || "label list incomplete"})`,
         )
         .join(" | ")}
 Abstract: ${(item.abstract || "No abstract available.").slice(0, 3500)}`,
     )
     .join("\n\n---\n\n");
 
-  return `You are a pharmacovigilance triage assistant for a Canadian pharmaceutical company. You perform a FIRST-PASS screen of literature for individual case safety reports (ICSRs) about the company's products. A qualified human reviewer makes every final decision.
+  return `You are a pharmacovigilance triage assistant for a Canadian market authorisation holder. You perform a FIRST-PASS screen of literature for individual case safety reports. A qualified human reviewer makes every final decision.
 
-For each article below, decide:
-1. category: "Potential Reportable Case" when the article describes one or more identifiable individual patients who experienced an adverse event after exposure to one of the listed products (or the same active ingredient/brand). "Safety Information/Possible Signal" when the article is about the product and mentions adverse events but has no individual case (e.g. aggregate cohort percentages, pharmacology, signals without a patient). "Not Relevant" only when clearly none of the above (animal or lab study, different product/ingredient, no adverse event, review with no new cases).
+For each article below, return:
+1. category: "Potential Reportable Case" when the article describes one or more identifiable individual patients who experienced an adverse reaction after exposure to one of the listed products (or the same active ingredient/brand). "Safety Information/Possible Signal" when the article concerns the product and mentions adverse reactions but has no individual case. "Not Relevant" only when clearly none of the above.
 2. not_relevant_reason: only when category is "Not Relevant".
-3. human_subject, adverse_event_present, identifiable_patient, identifiable_reporter, suspect_product_named (booleans / yes-no-unclear).
-4. brand_identified: "yes" if the article names the company brand; "no" if it only names the ingredient or an unnamed product (then the reviewer assumes the company product and flags "brand not identified").
-5. reactions: the adverse events, as short clinical terms.
-6. seriousness: "Serious" if death, life-threatening, hospitalization, disability, congenital anomaly or medically important; "Non-serious" if none; "Unclear" if the abstract does not say. seriousness_criteria lists which of Death, Life-threatening, Hospitalization, Disability, Congenital anomaly, Medically important apply.
-7. expectedness: compare each reaction with the product's labelled reactions. "Expected" if described in the label, "Unexpected" if not, "Unclear" if you cannot tell.
-8. occurred_in: "Canada", "Foreign" or "Unknown", based on where the patient was treated.
-9. confidence: 0-100.
-10. evidence_quotes: 1-4 SHORT verbatim quotes copied exactly from the abstract that support your key fields.
-11. ai_summary: two sentences.
+3. human_subject, adverse_event_present, identifiable_patient, identifiable_reporter, suspect_product_named, suspect_per_author (true only when the author names OUR product as the suspect product).
+4. brand_identified: "yes" if the article names the company brand; "no" if it only names the ingredient (the reviewer then assumes our product and keeps the flag).
+5. reactions: the adverse reactions, including drug-drug, drug-natural health product and drug-food interactions, as short clinical terms.
+6. reactions_coded: for every reaction, the verbatim term from the article and the closest MedDRA Preferred Term you can suggest. These suggestions are unverified and a reviewer confirms them in a licensed MedDRA browser.
+7. patients: one entry for EVERY individually identifiable patient (descriptor, age, sex, reactions, outcome, country, fatal_outcome). If the article says "several patients" without individual details, return an empty list and set several_patients_unnamed true. Never merge two patients into one entry and never invent a patient.
+8. several_patients_unnamed.
+9. seriousness: "Serious" if death, life-threatening, hospitalisation, disability, congenital anomaly or medically important; "Non-serious" if none; "Unclear" if the abstract does not say. seriousness_criteria lists which criteria apply.
+10. expectedness: compare each reaction with the product's labelled reactions. "Expected" if described in the label, "Unexpected" if not, "Unclear" if you cannot tell.
+11. occurred_in: "Canada", "Foreign" or "Unknown", based on where the patient was treated.
+12. special_situations: any of pregnancy or breastfeeding exposure, medication error, misuse or abuse, off-label use, overdose, lack of efficacy, drug interaction.
+13. relevant_for_asr: "yes" when the finding matters for the Annual Summary Report, even when there is no case.
+14. detected_language and, when the abstract is not in English or French, abstract_translation with a full English translation. Keep reaction terms verbatim in both.
+15. confidence 0-100, evidence_quotes (1-4 short verbatim quotes), ai_summary (two sentences).
 
-Rules: Be cautious. If you are unsure about anything, choose "Unclear" and lower the confidence; never invent details that are not in the abstract. Never exclude an article you are not highly confident about. You never make the final regulatory decision.
+Rules: be cautious, never invent details, choose "Unclear" and lower the confidence when unsure, and never exclude an article you are not highly confident about. You never make the final regulatory decision.
 
-Return JSON with a "results" array containing one object per article, matching each input index.
+Return JSON with a "results" array, one object per input index.
 
 ${articles}`;
 }
@@ -306,12 +377,20 @@ function fallbackTriage(index) {
     identifiable_patient: false,
     identifiable_reporter: false,
     suspect_product_named: false,
+    suspect_per_author: false,
     brand_identified: "no",
     reactions: [],
+    reactions_coded: [],
+    patients: [],
+    several_patients_unnamed: false,
     seriousness: "Unclear",
     seriousness_criteria: [],
     expectedness: "Unclear",
     occurred_in: "Unknown",
+    special_situations: [],
+    relevant_for_asr: "no",
+    detected_language: "",
+    abstract_translation: "",
     confidence: 0,
     evidence_quotes: [],
     ai_summary: "AI triage could not be completed for this record. Manual review is required.",
@@ -345,7 +424,15 @@ export async function triageArticles(sdk, items, threshold = 85) {
       }
       if (triage.category !== "Not Relevant") triage.not_relevant_reason = undefined;
       if (triage.category === "Not Relevant" && !triage.not_relevant_reason) triage.not_relevant_reason = "Other";
-      results.push({ ...triage, confidence: Math.max(0, Math.min(100, Number(triage.confidence) || 0)) });
+      results.push({
+        ...triage,
+        patients: Array.isArray(triage.patients) ? triage.patients.filter((p) => p?.descriptor) : [],
+        reactions_coded: Array.isArray(triage.reactions_coded) ? triage.reactions_coded.filter((r) => r?.verbatim) : [],
+        special_situations: Array.isArray(triage.special_situations) ? triage.special_situations : [],
+        confidence: Math.max(0, Math.min(100, Number(triage.confidence) || 0)),
+        ai_model: TRIAGE_AI_MODEL,
+        prompt_version: TRIAGE_PROMPT_VERSION,
+      });
     });
   }
   return results;
@@ -363,37 +450,86 @@ const CASE_SCHEMA = {
   required: ["narrative"],
 };
 
-export async function draftCaseContent(sdk, { article, triage, product }) {
-  const prompt = `Draft the structured fields and narrative for a Canadian pharmacovigilance individual case safety report (ICSR).
+export async function draftCaseContent(sdk, { article, triage, product, patient }) {
+  const prompt = `Draft the structured fields and the narrative for ONE Canadian pharmacovigilance individual case safety report.
 
 Article title: ${article.title}
 Journal: ${article.journal || "unknown"}
 Authors: ${article.authors || "unknown"}
-Abstract: ${(article.abstract || "").slice(0, 3500)}
+Abstract: ${(article.abstract || article.abstract_translation || "").slice(0, 3500)}
 
 Suspect product: ${product?.brand_name || "company product"} (ingredients: ${(product?.active_ingredients || []).join(", ") || "unknown"})
-Reactions identified: ${(triage?.reactions || []).join(", ") || "unknown"}
+Patient being reported: ${patient ? `${patient.descriptor || "described patient"}; age ${patient.age || "not reported"}; sex ${patient.sex || "not reported"}; reactions ${(patient.reactions || []).join(", ") || "as described"}; outcome ${patient.outcome || "not reported"}` : "the single patient described"}
 Seriousness: ${triage?.seriousness || "Unclear"}; criteria: ${(triage?.seriousness_criteria || []).join(", ") || "none"}
-Expectedness: ${triage?.expectedness || "Unclear"}; occurred in: ${triage?.occurred_in || "Unknown"}
+Occurred in: ${patient?.country || triage?.occurred_in || "Unknown"}
 
-Return JSON: age (number, 0 if unknown), sex, patient_descriptor (e.g. "58-year-old woman, Toronto"), reporter (the article authors in "Last FM" style), and a narrative of 120-180 words written in neutral regulatory style: patient, suspect product, dose/route if stated, adverse event with dates and outcome, seriousness criteria, reporter and country. Use only facts from the abstract; write "not reported" where a fact is missing. Do not invent details.`;
+The narrative must:
+- be standalone: a reader must understand it without the article,
+- avoid abbreviations (write "milligrams", "once daily", "Health Canada"),
+- describe only this patient, never other patients in the article,
+- include patient, suspect product, dose and route when stated, the adverse reaction with dates and outcome, seriousness criteria, reporter and country,
+- write "not reported" for missing facts and never invent details,
+- be 120-180 words in neutral regulatory style.
+
+Also return the structured fields (age as a number, 0 when unknown; sex; patient descriptor; reporter as the article authors in "Last FM" style).`;
 
   try {
     const res = await sdk.integrations.Core.InvokeLLM({ prompt, response_json_schema: CASE_SCHEMA });
     return {
-      age: Number(res?.age) || 0,
-      sex: res?.sex || "Unknown",
-      patient_descriptor: res?.patient_descriptor || "Patient described in article",
+      age: Number(res?.age) || Number(patient?.age) || 0,
+      sex: res?.sex || patient?.sex || "Unknown",
+      patient_descriptor: res?.patient_descriptor || patient?.descriptor || "Patient described in article",
       reporter: res?.reporter || article.authors || "Article authors",
       narrative: res?.narrative || "",
     };
   } catch (error) {
     return {
-      age: 0,
-      sex: "Unknown",
-      patient_descriptor: "Patient described in article",
+      age: Number(patient?.age) || 0,
+      sex: patient?.sex || "Unknown",
+      patient_descriptor: patient?.descriptor || "Patient described in article",
       reporter: article.authors || "Article authors",
       narrative: `AI narrative draft unavailable. Source article: ${article.title}. Abstract: ${(article.abstract || "").slice(0, 900)}`,
     };
   }
+}
+
+const FOREIGN_SCHEMA = {
+  type: "object",
+  properties: {
+    summary: { type: "string" },
+    serious_risk_hint: { type: "string", enum: ["yes", "no", "unclear"] },
+  },
+  required: ["summary"],
+};
+
+export async function summarizeForeignAction(sdk, { authority, productName, text }) {
+  const prompt = `Summarise this regulatory action notice for a Canadian pharmacovigilance team in 80-120 words of plain English. State the authority, the product, the action taken (withdrawal, restriction, warning, label change), the safety issue, and the population affected. Do not add facts that are not in the notice.
+
+Authority: ${authority}
+Product: ${productName}
+Notice:
+${String(text || "").slice(0, 6000)}`;
+  const res = await sdk.integrations.Core.InvokeLLM({ prompt, response_json_schema: FOREIGN_SCHEMA });
+  return { summary: res?.summary || "", serious_risk_hint: res?.serious_risk_hint || "unclear" };
+}
+
+export async function draftAnnualAnalysis(sdk, { productName, periodStart, periodEnd, cases, signals, specialSituations }) {
+  const caseLines = cases
+    .slice(0, 60)
+    .map((c) => `- ${c.case_number}: ${c.seriousness}, ${c.expectedness_effective || c.expectedness}, reactions ${(c.reactions || []).join(", ")}, ${c.occurred_in}`)
+    .join("\n");
+  const signalLines = signals.map((s) => `- ${s.reaction} (${s.status})`).join("\n");
+  const prompt = `Write the concise critical analysis for a Canadian Annual Summary Report covering ${periodStart} to ${periodEnd} for ${productName}.
+
+Cases in the period (${cases.length}):
+${caseLines || "none"}
+
+Signals opened, ongoing or closed in the period:
+${signalLines || "none"}
+
+Special situations recorded: ${(specialSituations || []).join(", ") || "none"}
+
+Write 200-300 words in neutral regulatory English: the volume and nature of the cases, serious and unexpected reports, any pattern suggesting a change in the benefit-risk profile, signals and their status, special situations, and a closing statement on whether the benefit-risk profile remains favourable. Do not use abbreviations. Do not invent data that is not listed above; state "no cases were reported" where that is the case. This is a draft requiring Medical Reviewer sign-off.`;
+  const res = await sdk.integrations.Core.InvokeLLM({ prompt });
+  return typeof res === "string" ? res : res?.text || "";
 }

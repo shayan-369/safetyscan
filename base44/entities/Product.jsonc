@@ -17,8 +17,7 @@
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "Other names the product appears under in literature"
+      }
     },
     "product_type": {
       "type": "string",
@@ -29,8 +28,7 @@
       "enumColors": [
         "blue",
         "green"
-      ],
-      "description": "Regulatory product type"
+      ]
     },
     "licence_number": {
       "type": "string",
@@ -45,24 +43,82 @@
       "enumColors": [
         "purple",
         "blue"
-      ],
-      "description": "Business division"
+      ]
     },
     "indication": {
-      "type": "string",
-      "description": "Approved indication"
+      "type": "string"
     },
     "labelled_reactions": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "Reactions already described in the Canadian label, used to judge expected vs unexpected"
+      }
+    },
+    "label_complete": {
+      "type": "boolean",
+      "default": false,
+      "description": "Labelled reactions confirmed; until true every reaction is treated as unexpected"
+    },
+    "portfolio_status": {
+      "type": "string",
+      "enum": [
+        "Confirmed",
+        "To be confirmed by an Admin"
+      ],
+      "enumColors": [
+        "green",
+        "yellow"
+      ]
+    },
+    "imported": {
+      "type": "boolean",
+      "default": false
+    },
+    "partner_company": {
+      "type": "string"
+    },
+    "screens_literature": {
+      "type": "string",
+      "enum": [
+        "Seaford",
+        "Partner",
+        "Both"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "teal"
+      ]
+    },
+    "reports_to_hc": {
+      "type": "string",
+      "enum": [
+        "Seaford",
+        "Partner"
+      ],
+      "enumColors": [
+        "blue",
+        "purple"
+      ]
+    },
+    "agreement_effective_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "agreement_file_uri": {
+      "type": "string"
+    },
+    "partner_days_to_exchange": {
+      "type": "number"
+    },
+    "data_lock_point": {
+      "type": "string",
+      "format": "date",
+      "description": "Annual Summary Report data lock point"
     },
     "active": {
       "type": "boolean",
-      "default": true,
-      "description": "Include in weekly searches"
+      "default": true
     }
   },
   "required": [

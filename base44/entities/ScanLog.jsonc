@@ -1,0 +1,123 @@
+{
+  "name": "ScanLog",
+  "type": "object",
+  "properties": {
+    "date": {
+      "type": "string",
+      "format": "date"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "PubMed",
+        "Embase",
+        "Canada Vigilance online database",
+        "FDA",
+        "EMA",
+        "MHRA",
+        "Other foreign regulator",
+        "Local journal"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "pink",
+        "teal",
+        "teal",
+        "teal",
+        "gray",
+        "gray"
+      ]
+    },
+    "query_checked": {
+      "type": "string",
+      "description": "Query string or page checked"
+    },
+    "date_range_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "date_range_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "result_count": {
+      "type": "number",
+      "default": 0
+    },
+    "outcome": {
+      "type": "string",
+      "description": "What the scan found and what was done"
+    },
+    "performed_by": {
+      "type": "string"
+    },
+    "search_run": {
+      "type": "string"
+    },
+    "optional_note": {
+      "type": "string"
+    },
+    "nullified": {
+      "type": "boolean",
+      "default": false
+    },
+    "nullified_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "date",
+    "source",
+    "performed_by"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

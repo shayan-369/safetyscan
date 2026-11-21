@@ -61,6 +61,10 @@
     "suspect_product_named": {
       "type": "boolean"
     },
+    "suspect_per_author": {
+      "type": "boolean",
+      "description": "Author names our product as the suspect"
+    },
     "brand_identified": {
       "type": "string",
       "enum": [
@@ -77,6 +81,58 @@
       "items": {
         "type": "string"
       }
+    },
+    "reactions_coded": {
+      "type": "array",
+      "description": "Verbatim terms with AI-suggested MedDRA Preferred Terms",
+      "items": {
+        "type": "object",
+        "properties": {
+          "verbatim": {
+            "type": "string"
+          },
+          "ai_pt": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "patients": {
+      "type": "array",
+      "description": "Each identifiable patient described in the article",
+      "items": {
+        "type": "object",
+        "properties": {
+          "descriptor": {
+            "type": "string"
+          },
+          "age": {
+            "type": "number"
+          },
+          "sex": {
+            "type": "string"
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "outcome": {
+            "type": "string"
+          },
+          "country": {
+            "type": "string"
+          },
+          "fatal_outcome": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "several_patients_unnamed": {
+      "type": "boolean",
+      "description": "Article mentions several patients without individual details"
     },
     "seriousness": {
       "type": "string",
@@ -123,6 +179,31 @@
         "yellow"
       ]
     },
+    "special_situations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Pregnancy or breastfeeding, medication error, misuse or abuse, off-label use, overdose, lack of efficacy, drug interaction"
+    },
+    "relevant_for_asr": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no"
+      ],
+      "enumColors": [
+        "blue",
+        "gray"
+      ]
+    },
+    "detected_language": {
+      "type": "string"
+    },
+    "abstract_translation": {
+      "type": "string",
+      "description": "English translation kept alongside the original abstract"
+    },
     "confidence": {
       "type": "number",
       "description": "0-100"
@@ -136,10 +217,22 @@
     "ai_summary": {
       "type": "string"
     },
+    "ai_model": {
+      "type": "string"
+    },
+    "prompt_version": {
+      "type": "string"
+    },
     "qc_sample": {
       "type": "boolean",
-      "default": false,
-      "description": "Randomly selected for the quality-control review of AI exclusions"
+      "default": false
+    },
+    "nullified": {
+      "type": "boolean",
+      "default": false
+    },
+    "nullified_reason": {
+      "type": "string"
     }
   },
   "required": [

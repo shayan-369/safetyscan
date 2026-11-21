@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth-middleware";
+import { evaluateReportability, titleSimilarity } from "@/lib/pv";
 import {
   addDaysISO,
   draftCaseContent,
@@ -29,6 +30,14 @@ function assertAdmin(user) {
   }
 }
 
+function normalizeCountry(country, fallback) {
+  const value = String(country || "").trim();
+  if (/canada/i.test(value)) return "Canada";
+  if (["Foreign", "Unknown", "Canada"].includes(value)) return value;
+  if (value) return "Foreign";
+  return ["Canada", "Foreign", "Unknown"].includes(fallback) ? fallback : "Unknown";
+}
+
 function matchProducts(article, products) {
   const text = `${article.title} ${article.abstract || ""}`.toLowerCase();
   const hits = products.filter((p) => {
@@ -48,7 +57,12 @@ async function productsForArticle(sdk, article, products) {
 }
 
 async function ingestDrafts(sdk, run, drafts, { products, threshold, qcPct }) {
-  const existing = rows(await sdk.entities.Article.list({ limit: 2000 })).filter((a) => a.search_run !== run.id);
+  const [articlePage, casePage] = await Promise.all([
+    sdk.entities.Article.list({ limit: 2000 }),
+    sdk.entities.Case.list({ limit: 2000 }),
+  ]);
+  const existing = rows(articlePage).filter((a) => a.search_run !== run.id && !a.nullified);
+  const caseByArticle = new Map(rows(casePage).filter((c) => c.article).map((c) => [c.article, c]));
   const byPmid = new Map();
   const byDoi = new Map();
   const byTitle = new Map();
@@ -63,10 +77,29 @@ async function ingestDrafts(sdk, run, drafts, { products, threshold, qcPct }) {
 
   for (const draft of drafts) {
     if (!draft.title) continue;
-    const dup =
-      (draft.pmid && byPmid.get(String(draft.pmid))) ||
-      (draft.doi && byDoi.get(draft.doi.toLowerCase())) ||
-      byTitle.get(normalizeTitle(draft.title));
+    let dup = null;
+    let matchReason = "";
+    if (draft.pmid && byPmid.get(String(draft.pmid))) {
+      dup = byPmid.get(String(draft.pmid));
+      matchReason = `Same PMID ${draft.pmid}`;
+    } else if (draft.doi && byDoi.get(draft.doi.toLowerCase())) {
+      dup = byDoi.get(draft.doi.toLowerCase());
+      matchReason = `Same DOI ${draft.doi}`;
+    } else if (byTitle.get(normalizeTitle(draft.title))) {
+      dup = byTitle.get(normalizeTitle(draft.title));
+      matchReason = "Identical title";
+    } else {
+      const scored = existing
+        .map((candidate) => ({ candidate, score: titleSimilarity(candidate.title || "", draft.title) }))
+        .sort((left, right) => right.score - left.score)[0];
+      if (scored && scored.score >= 0.9) {
+        dup = scored.candidate;
+        matchReason = `Title ${Math.round(scored.score * 100)}% similar to an earlier record`;
+      }
+    }
+    if (dup && caseByArticle.get(dup.id)) {
+      matchReason = `${matchReason} · already reported as case ${caseByArticle.get(dup.id).case_number}`;
+    }
 
     const article = await sdk.entities.Article.create({
       search_run: run.id,
@@ -82,6 +115,8 @@ async function ingestDrafts(sdk, run, drafts, { products, threshold, qcPct }) {
       country: draft.country || "",
       matched_products: draft.productId ? [draft.productId] : matchProducts(draft, products),
       duplicate_of: dup ? dup.id : "",
+      duplicate_reason: matchReason,
+      full_text_status: "Not needed",
       status: dup ? "Decided" : "New",
     });
 
@@ -134,16 +169,31 @@ async function ingestDrafts(sdk, run, drafts, { products, threshold, qcPct }) {
       suspect_product_named: !!t.suspect_product_named,
       brand_identified: t.brand_identified || "no",
       reactions: t.reactions || [],
+      reactions_coded: (t.reactions_coded || []).slice(0, 40),
+      patients: t.patients || [],
+      several_patients_unnamed: !!t.several_patients_unnamed,
       seriousness: t.seriousness || "Unclear",
       seriousness_criteria: t.seriousness_criteria || [],
       expectedness: t.expectedness || "Unclear",
       occurred_in: t.occurred_in || "Unknown",
+      suspect_per_author: !!t.suspect_per_author,
+      special_situations: t.special_situations || [],
+      relevant_for_asr: t.relevant_for_asr || "no",
+      detected_language: t.detected_language || "",
+      abstract_translation: t.abstract_translation || "",
+      ai_model: t.ai_model || "automatic",
+      prompt_version: t.prompt_version || "v1",
       confidence: t.confidence,
       evidence_quotes: (t.evidence_quotes || []).slice(0, 5),
       ai_summary: t.ai_summary || "",
       qc_sample: qcSample,
     });
-    articleUpdates.push({ id: entry.article.id, status: "AI Triaged" });
+    articleUpdates.push({
+      id: entry.article.id,
+      status: "AI Triaged",
+      abstract_language: t.detected_language || "",
+      abstract_translation: t.abstract_translation || "",
+    });
   });
 
   if (triageRecords.length) await sdk.entities.Triage.bulkCreate(triageRecords);
@@ -211,7 +261,8 @@ export const startWeeklyRun = createServerFn({ method: "POST" })
 
     const lastRun = rows(await sdk.entities.SearchRun.list({ sort: "-date_range_end", limit: 1 }))[0];
     const end = todayISO();
-    let start = lastRun?.date_range_end ? addDaysISO(lastRun.date_range_end, 1) : addDaysISO(end, -7);
+    const span = settings.search_frequency === "Every 2 weeks" ? 14 : settings.search_frequency === "Monthly" ? 30 : 7;
+    let start = lastRun?.date_range_end ? addDaysISO(lastRun.date_range_end, 1) : addDaysISO(end, -span);
     if (start > end) start = end;
 
     const strategies = rows(await sdk.entities.SearchStrategy.filter({ active: true }, { limit: 200 }));
@@ -311,6 +362,9 @@ export const decideArticle = createServerFn({ method: "POST" })
       finalCategory: z.enum(["Potential Reportable Case", "Safety Information/Possible Signal", "Not Relevant"]),
       comment: z.string().max(4000).optional(),
       qcSample: z.boolean().optional(),
+      notOurProduct: z.boolean().optional(),
+      exclusionReason: z.string().max(60).optional(),
+      exclusionDetail: z.string().max(500).optional(),
     }),
   )
   .handler(async ({ context, data }) => {
@@ -320,6 +374,35 @@ export const decideArticle = createServerFn({ method: "POST" })
 
     const article = await sdk.entities.Article.get(data.articleId);
     const triage = rows(await sdk.entities.Triage.filter({ article: article.id }, { limit: 1 }))[0];
+
+    if (data.notOurProduct) {
+      if (!data.exclusionReason) {
+        throw Object.assign(new Error("Choose the reason this is not our product."), { status: 422 });
+      }
+      const comment = `Not our product · ${data.exclusionReason}${data.exclusionDetail ? ` · ${data.exclusionDetail}` : ""}${
+        data.comment ? ` · ${data.comment}` : ""
+      }`;
+      await sdk.entities.ReviewDecision.create({
+        article: article.id,
+        reviewer: who,
+        reviewer_role: roleOf(context.user),
+        decision: "Override",
+        final_category: "Not Relevant",
+        comment,
+        decided_at: new Date().toISOString(),
+        qc_sample: !!data.qcSample,
+      });
+      await sdk.entities.Article.update(article.id, { status: "Decided" });
+      await logAudit(sdk, {
+        who,
+        action: "Reviewer recorded the article as not our product",
+        entity: "Article",
+        entity_id: article.id,
+        before: { ai_category: triage?.category },
+        after: { final_category: "Not Relevant", exclusion_reason: data.exclusionReason, detail: data.exclusionDetail || "" },
+      });
+      return { articleId: article.id, caseId: null, caseNumbers: [], notOurProduct: true, taskId: null };
+    }
 
     await sdk.entities.ReviewDecision.create({
       article: article.id,
@@ -343,75 +426,181 @@ export const decideArticle = createServerFn({ method: "POST" })
       after: { status: "Decided", final_category: data.finalCategory, comment: data.comment || "" },
     });
 
-    let caseId = null;
-    let caseNumber = null;
+    let caseIds = [];
+    let caseNumbers = [];
+    let taskId = null;
+    let firstReportable = null;
 
     if (data.finalCategory === "Potential Reportable Case") {
-      const existing = rows(await sdk.entities.Case.filter({ article: article.id }, { limit: 1 }))[0];
-      if (!existing) {
-        const products = rows(await sdk.entities.Product.list({ limit: 200 }));
-        const product =
-          products.find((p) => (article.matched_products || []).includes(p.id)) ||
-          products.find((p) => matchProducts(article, [p]).length) ||
-          null;
-        const draft = await draftCaseContent(sdk, { article, triage, product });
-        const allCases = rows(await sdk.entities.Case.list({ limit: 2000 }));
-        const dayZero = todayISO();
-        const serious = triage?.seriousness === "Serious";
-        const reportable =
-          serious && (triage?.occurred_in === "Canada" || triage?.expectedness === "Unexpected");
-        const created = await sdk.entities.Case.create({
-          case_number: `PV-${dayZero.slice(0, 4)}-${String(allCases.length + 1).padStart(4, "0")}`,
-          article: article.id,
-          product: product?.id || "",
-          product_name: product?.brand_name || "Product not matched",
-          patient_initials_or_descriptor: draft.patient_descriptor,
-          age: draft.age,
-          sex: draft.sex,
-          reporter: draft.reporter,
-          reactions: triage?.reactions || [],
-          seriousness: triage?.seriousness || "Unclear",
-          seriousness_criteria: triage?.seriousness_criteria || [],
-          expectedness: triage?.expectedness || "Unclear",
-          occurred_in: triage?.occurred_in || "Unknown",
-          day_zero: dayZero,
-          due_date: reportable ? addDaysISO(dayZero, 15) : "",
-          reportable_to_health_canada: reportable,
-          brand_identified: triage?.brand_identified || "yes",
-          narrative: draft.narrative,
-          status: "Draft",
-        });
-        caseId = created.id;
-        caseNumber = created.case_number;
+      const products = rows(await sdk.entities.Product.list({ limit: 200 }));
+      const product =
+        products.find((p) => (article.matched_products || []).includes(p.id)) ||
+        products.find((p) => matchProducts(article, [p]).length) ||
+        null;
+      const already = rows(await sdk.entities.Case.filter({ article: article.id }, { limit: 50 })).filter(
+        (c) => !c.nullified,
+      );
+      const patients = (triage?.patients || []).filter((p) => p?.descriptor);
+      const allCases = rows(await sdk.entities.Case.list({ limit: 2000 }));
+      let sequence = allCases.length;
 
+      if (!already.length && !patients.length && triage?.several_patients_unnamed) {
+        const task = await sdk.entities.Task.create({
+          title: "Contact author for individual patient details",
+          description: `The article reports several patients without individual details: ${article.title}`,
+          kind: "Contact author",
+          article: article.id,
+          status: "Open",
+          owner: who,
+          due_date: addDaysISO(todayISO(), 30),
+        });
+        taskId = task.id;
         await logAudit(sdk, {
           who,
-          action: `Case ${created.case_number} created from article`,
-          entity: "Case",
-          entity_id: created.id,
-          after: { case_number: created.case_number, seriousness: created.seriousness, due_date: created.due_date },
+          action: "Follow-up task created: contact author for individual patient details",
+          entity: "Task",
+          entity_id: task.id,
+          after: { article: article.title },
         });
+      } else if (!already.length) {
+        const list = patients.length
+          ? patients
+          : [
+              {
+                descriptor: "Patient described in article",
+                age: 0,
+                sex: "Unknown",
+                reactions: triage?.reactions || [],
+                country: triage?.occurred_in,
+                outcome: "",
+              },
+            ];
 
+        for (let index = 0; index < list.length; index += 1) {
+          const patient = list[index];
+          const draft = await draftCaseContent(sdk, { article, triage, product, patient });
+          const reactions = patient.reactions?.length ? patient.reactions : triage?.reactions || [];
+          const criteria = {
+            day0_reporter: !!triage?.identifiable_reporter,
+            day0_patient: !!triage?.identifiable_patient,
+            day0_product: !!triage?.suspect_product_named,
+            day0_reaction: !!triage?.adverse_event_present,
+          };
+          const allMet = Object.values(criteria).every(Boolean);
+          const dayZero = allMet ? todayISO() : "";
+          const basis = {
+            seriousness: triage?.seriousness || "Unclear",
+            occurred_in: normalizeCountry(patient.country, triage?.occurred_in),
+            expectedness: triage?.expectedness || "Unclear",
+            fatal_outcome: !!patient.fatal_outcome || (triage?.seriousness_criteria || []).includes("Death"),
+            reactions,
+            day_zero: dayZero,
+            market_same_combination: !!product,
+          };
+          const report = evaluateReportability(basis, product);
+          const coded = (triage?.reactions_coded || [])
+            .filter((entry) => reactions.some((r) => String(r).toLowerCase() === String(entry.verbatim).toLowerCase()))
+            .map((entry) => ({
+              verbatim: entry.verbatim,
+              ai_pt: entry.ai_pt || "",
+              meddra_version: "",
+              confirmed: false,
+            }));
+
+          sequence += 1;
+          const created = await sdk.entities.Case.create({
+            case_number: `PV-${todayISO().slice(0, 4)}-${String(sequence).padStart(4, "0")}`,
+            article: article.id,
+            patient_index: index,
+            product: product?.id || "",
+            product_name: product?.brand_name || "Product not matched",
+            patient_initials_or_descriptor: draft.patient_descriptor,
+            age: draft.age,
+            sex: draft.sex,
+            reporter: draft.reporter,
+            reactions,
+            reactions_coded: coded,
+            seriousness: basis.seriousness,
+            seriousness_criteria: triage?.seriousness_criteria || [],
+            expectedness: basis.expectedness,
+            expectedness_effective: report.expectedness,
+            expectedness_note: report.expectednessNote,
+            fatal_outcome: basis.fatal_outcome,
+            occurred_in: basis.occurred_in,
+            market_same_combination: report.sameCombination,
+            day_zero: dayZero,
+            due_date: report.dueDate || "",
+            reportable_to_health_canada: report.reportable,
+            reportability_rule: report.rule,
+            reportability_basis: `${report.rule}. ${report.expectednessNote}`.trim(),
+            brand_identified: triage?.brand_identified || "yes",
+            suspect_per_author: !!triage?.suspect_per_author,
+            not_our_product: false,
+            ...criteria,
+            version: 1,
+            received_date: dayZero || todayISO(),
+            narrative: draft.narrative,
+            status: "Draft",
+            full_text_status: article.full_text_status || "Not needed",
+            special_situations: triage?.special_situations || [],
+            relevant_for_asr: triage?.relevant_for_asr || "no",
+            nhp_npn: product?.product_type === "Natural Health Product" ? product?.licence_number || "" : "",
+            nullified: false,
+          });
+          await sdk.entities.Case.update(created.id, { initial_case: created.id });
+          caseIds.push(created.id);
+          caseNumbers.push(created.case_number);
+          if (report.reportable && !firstReportable) firstReportable = created;
+
+          await logAudit(sdk, {
+            who,
+            action: `Case ${created.case_number} created for patient ${index + 1} of the article`,
+            entity: "Case",
+            entity_id: created.id,
+            after: {
+              seriousness: created.seriousness,
+              expectedness_effective: report.expectedness,
+              rule: report.rule,
+              due_date: created.due_date,
+            },
+          });
+
+          if (product?.partner_company && Number(product.partner_days_to_exchange) > 0) {
+            await sdk.entities.Task.create({
+              title: `Send case ${created.case_number} to partner within ${product.partner_days_to_exchange} days`,
+              description: `The PV agreement with ${product.partner_company} requires case exchange.`,
+              kind: "Partner exchange",
+              case: created.id,
+              article: article.id,
+              due_date: addDaysISO(todayISO(), Number(product.partner_days_to_exchange)),
+              status: "Open",
+              owner: who,
+            });
+          }
+        }
+      }
+
+      if (firstReportable) {
         const settings = rows(await sdk.entities.AppSettings.list({ limit: 1 }))[0] || {};
         if (settings.email_alerts !== false) {
           await sendTemplated(
             sdk,
             "CaseConfirmed",
             {
-              case_number: created.case_number,
-              product_name: created.product_name,
-              seriousness: created.seriousness,
-              due_date: created.due_date || "not reportable",
+              case_number: firstReportable.case_number,
+              product_name: firstReportable.product_name,
+              seriousness: firstReportable.seriousness,
+              due_date: firstReportable.due_date || "not reportable",
               reviewer: who,
             },
             settings,
-            `Reportable case confirmed: ${created.case_number}`,
+            `Reportable case confirmed: ${firstReportable.case_number}`,
           );
         }
       }
     }
 
-    return { articleId: article.id, caseId, caseNumber };
+    return { articleId: article.id, caseId: caseIds[0] || null, caseIds, caseNumbers, taskId };
   });
 
 /* ------------------------------ triage retry ------------------------------ */
@@ -445,10 +634,20 @@ export const retriageArticle = createServerFn({ method: "POST" })
       suspect_product_named: !!result.suspect_product_named,
       brand_identified: result.brand_identified || "no",
       reactions: result.reactions || [],
+      reactions_coded: result.reactions_coded || [],
+      patients: result.patients || [],
+      several_patients_unnamed: !!result.several_patients_unnamed,
       seriousness: result.seriousness || "Unclear",
       seriousness_criteria: result.seriousness_criteria || [],
       expectedness: result.expectedness || "Unclear",
       occurred_in: result.occurred_in || "Unknown",
+      suspect_per_author: !!result.suspect_per_author,
+      special_situations: result.special_situations || [],
+      relevant_for_asr: result.relevant_for_asr || "no",
+      detected_language: result.detected_language || "",
+      abstract_translation: result.abstract_translation || "",
+      ai_model: result.ai_model || "automatic",
+      prompt_version: result.prompt_version || "v1",
       confidence: result.confidence,
       evidence_quotes: (result.evidence_quotes || []).slice(0, 5),
       ai_summary: result.ai_summary || "",
@@ -477,8 +676,8 @@ export const closeRun = createServerFn({ method: "POST" })
   .middleware([requireUser])
   .validator(z.object({ runId: z.string() }))
   .handler(async ({ context, data }) => {
-    if (roleOf(context.user) === "Inspector") {
-      throw Object.assign(new Error("Your role has read-only access."), { status: 403 });
+    if (!["Medical Reviewer", "Admin"].includes(roleOf(context.user))) {
+      throw Object.assign(new Error("Only a Medical Reviewer can close a run."), { status: 403 });
     }
     const sdk = context.getBase44().asServiceRole;
     const who = nameOf(context.user);
@@ -668,7 +867,8 @@ export const saveSettings = createServerFn({ method: "POST" })
   .validator(
     z.object({
       id: z.string().optional(),
-      search_frequency: z.enum(["Weekly", "Bi-weekly", "Monthly"]),
+      search_frequency: z.enum(["Weekly", "Every 2 weeks", "Monthly"]),
+      frequency_rationale: z.string().max(2000).optional(),
       confidence_threshold: z.number().min(0).max(100),
       qc_sample_percentage: z.number().min(0).max(100),
       email_alerts: z.boolean(),
@@ -679,15 +879,43 @@ export const saveSettings = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     assertAdmin(context.user);
     const sdk = context.getBase44().asServiceRole;
-    const { id, ...payload } = data;
-    const saved = id
-      ? await sdk.entities.AppSettings.update(id, payload)
+    if (data.search_frequency === "Monthly" && !data.frequency_rationale?.trim()) {
+      throw Object.assign(
+        new Error("Any interval longer than every 2 weeks needs a written risk-based rationale."),
+        { status: 422 },
+      );
+    }
+    const { id: settingsId, ...payload } = data;
+    const previous = settingsId ? rows(await sdk.entities.AppSettings.list({ limit: 1 }))[0] : null;
+    const saved = settingsId
+      ? await sdk.entities.AppSettings.update(settingsId, payload)
       : await sdk.entities.AppSettings.create(payload);
+
+    if (previous && Number(previous.confidence_threshold) !== Number(payload.confidence_threshold)) {
+      await sdk.entities.ChangeLog.create({
+        area: "Confidence threshold",
+        change: `${previous.confidence_threshold}% to ${payload.confidence_threshold}%`,
+        reason: data.frequency_rationale || "Threshold updated in settings",
+        requested_by: nameOf(context.user),
+        status: "Pending approval",
+      });
+    }
+    if (previous && previous.search_frequency !== payload.search_frequency) {
+      await sdk.entities.ChangeLog.create({
+        area: "Search frequency",
+        change: `${previous.search_frequency} to ${payload.search_frequency}`,
+        reason: data.frequency_rationale || "Search frequency updated in settings",
+        requested_by: nameOf(context.user),
+        status: "Pending approval",
+      });
+    }
+
     await logAudit(sdk, {
       who: nameOf(context.user),
       action: "Updated settings",
       entity: "AppSettings",
       entity_id: saved.id,
+      before: previous ? { search_frequency: previous.search_frequency, threshold: previous.confidence_threshold } : null,
       after: payload,
     });
     return saved;

@@ -1,10 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { AlertTriangle, Activity } from "lucide-react";
-import { useCases, useQueueData } from "@/hooks/usePv";
+import { AlertTriangle, Activity, Flag } from "lucide-react";
+import { useCases, useQueueData, useSignals } from "@/hooks/usePv";
 import { formatDate } from "@/lib/pv";
 import PageHeader from "@/components/pv/PageHeader";
+import StatusPill from "@/components/pv/StatusPill";
+import OpenSignalDialog from "@/components/signals/OpenSignalDialog";
 
 export const Route = createFileRoute("/_authed/signals")({
   head: () => ({ meta: [{ title: "Signals · SafetyScan PV" }] }),
@@ -35,9 +37,15 @@ function SignalsPage() {
   const triages = data?.triages ?? [];
   const articles = data?.articles ?? [];
   const [productName, setProductName] = useState("All products");
+  const [signalFlag, setSignalFlag] = useState(null);
+  const { data: signals = [] } = useSignals();
 
   const productById = useMemo(
     () => new Map((data?.products ?? []).map((product) => [product.id, product.brand_name])),
+    [data],
+  );
+  const productIdByName = useMemo(
+    () => new Map((data?.products ?? []).map((product) => [product.brand_name, product.id])),
     [data],
   );
 
@@ -193,6 +201,14 @@ function SignalsPage() {
                   {flag.unexpected ? "Not described in the Canadian label · " : ""}
                   most recent {formatDate(flag.lastDate)}
                 </p>
+                {productIdByName.get(flag.product) && (
+                  <button
+                    onClick={() => setSignalFlag({ ...flag, productId: productIdByName.get(flag.product) })}
+                    className="mt-1.5 inline-flex items-center gap-1 rounded border border-[#0D9488] px-2 py-0.5 text-[10.5px] font-semibold text-[#0D9488]"
+                  >
+                    <Flag className="h-2.5 w-2.5" /> Open signal
+                  </button>
+                )}
               </li>
             ))}
             {!flags.length && (
@@ -203,6 +219,46 @@ function SignalsPage() {
           </ul>
         </section>
       </div>
+
+      <section className="surface-card mt-4 p-4">
+        <h2 className="text-[13px] font-bold text-[#0F172A]">Signals opened</h2>
+        <ul className="mt-2 divide-y divide-[#E2E8F0]">
+          {signals.map((signal) => (
+            <li key={signal.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+              <div className="min-w-0">
+                <p className="text-[12px] font-semibold text-[#0F172A]">
+                  {signal.reaction} · {signal.product_name}
+                </p>
+                <p className="text-[10.5px] text-[#64748B]">
+                  {signal.source} · opened {formatDate(signal.opened_date)} · owner {signal.owner || "unassigned"}
+                  {signal.closed_date ? ` · closed ${formatDate(signal.closed_date)}` : ""}
+                </p>
+                {signal.assessment && <p className="text-[11px] text-[#475569]">{signal.assessment}</p>}
+              </div>
+              <StatusPill
+                tone={
+                  signal.status === "Closed - confirmed"
+                    ? "green"
+                    : signal.status.startsWith("Closed")
+                      ? "slate"
+                      : signal.status === "Ongoing"
+                        ? "purple"
+                        : "blue"
+                }
+              >
+                {signal.status}
+              </StatusPill>
+            </li>
+          ))}
+          {!signals.length && (
+            <li className="py-3 text-[11px] text-[#94A3B8]">
+              No signal has been opened yet. Use "Open signal" on a flagged reaction.
+            </li>
+          )}
+        </ul>
+      </section>
+
+      <OpenSignalDialog open={!!signalFlag} onOpenChange={(value) => !value && setSignalFlag(null)} flag={signalFlag} />
     </>
   );
 }

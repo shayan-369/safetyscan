@@ -6,12 +6,15 @@ import { toast } from "sonner";
 import { ArrowLeft, Download, FileUp, Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { CATEGORY_TONE, formatDate, pvRoleOf, RUN_STATUS_TONE, SERIOUSNESS_TONE } from "@/lib/pv";
-import { useRunWorkspace } from "@/hooks/usePv";
+import { useRunWorkspace, useScanLogs } from "@/hooks/usePv";
 import { closeRun } from "@/lib/server-fns";
+import { attachRunLog } from "@/lib/icsr-fns";
+import { base44 } from "@/api/base44Client";
 import { downloadWeeklySearchLog } from "@/lib/pdf";
 import PageHeader from "@/components/pv/PageHeader";
 import StatusPill from "@/components/pv/StatusPill";
 import ImportDialog from "@/components/runs/ImportDialog";
+import ScanCard from "@/components/runs/ScanCard";
 
 export const Route = createFileRoute("/_authed/runs/$runId")({
   head: () => ({ meta: [{ title: "Run detail · SafetyScan PV" }] }),
@@ -22,16 +25,20 @@ function RunDetailPage() {
   const { runId } = Route.useParams();
   const { user } = useAuth();
   const canWrite = pvRoleOf(user) !== "Inspector";
+  const canClose = ["Medical Reviewer", "Admin"].includes(pvRoleOf(user));
   const queryClient = useQueryClient();
   const { data, isLoading } = useRunWorkspace(runId);
+  const { data: allScans = [] } = useScanLogs();
   const [importOpen, setImportOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const close = useServerFn(closeRun);
+  const attachLog = useServerFn(attachRunLog);
 
   if (isLoading || !data) return <p className="text-[13px] text-[#64748B]">Loading run…</p>;
 
   const { run, triages, decisions, runs, strategies } = data;
   const articles = data.articles.filter((a) => a.search_run === runId);
+  const scans = allScans.filter((scan) => scan.search_run === runId);
   const triageFor = (id) => triages.find((t) => t.article === id);
   const decisionFor = (id) => decisions.find((d) => d.article === id);
   const duplicateFor = (article) => data.articles.find((a) => a.id === article.duplicate_of);
@@ -44,7 +51,16 @@ function RunDetailPage() {
     setClosing(true);
     try {
       const result = await close({ data: { runId } });
-      toast.success(`Run closed · ${result.casesCreated} case${result.casesCreated === 1 ? "" : "s"} in the weekly log.`);
+      const blob = downloadWeeklySearchLog(
+        { run: result.run || run, strategies, articles, triages, decisions, scans },
+        { upload: true },
+      );
+      const file = new File([blob], `weekly-search-log-${run.date_range_end || runId}.pdf`, { type: "application/pdf" });
+      const { file_uri } = await base44.integrations.Core.UploadPrivateFile({ file });
+      await attachLog({ data: { runId, fileUri: file_uri } });
+      toast.success(
+        `Run closed · ${result.casesCreated} case${result.casesCreated === 1 ? "" : "s"} in the weekly log, which is now stored on the run.`,
+      );
       queryClient.invalidateQueries({ queryKey: ["pv"] });
     } catch (error) {
       toast.error(error?.message || "Could not close the run.");
@@ -54,7 +70,12 @@ function RunDetailPage() {
   };
 
   const download = () => {
-    downloadWeeklySearchLog({ run, strategies, articles, triages, decisions });
+    downloadWeeklySearchLog({ run, strategies, articles, triages, decisions, scans });
+  };
+
+  const openStoredLog = async () => {
+    const { signed_url } = await base44.integrations.Core.CreateFileSignedUrl({ file_uri: run.log_file_uri });
+    window.open(signed_url, "_blank", "noreferrer");
   };
 
   return (
@@ -80,7 +101,7 @@ function RunDetailPage() {
                 <FileUp className="h-3.5 w-3.5" /> Import CSV / RIS
               </button>
             )}
-            {canWrite && run.status === "Awaiting Review" && (
+            {canClose && run.status === "Awaiting Review" && (
               <button
                 onClick={handleClose}
                 disabled={closing}
@@ -95,6 +116,14 @@ function RunDetailPage() {
                 className="inline-flex items-center gap-1.5 rounded-md bg-[#0D9488] px-3 py-2 text-[12px] font-semibold text-white"
               >
                 <Download className="h-3.5 w-3.5" /> Weekly search log PDF
+              </button>
+            )}
+            {run.log_file_uri && (
+              <button
+                onClick={openStoredLog}
+                className="inline-flex items-center gap-1.5 rounded-md border border-[#E2E8F0] bg-white px-3 py-2 text-[12px] font-semibold text-[#1E293B]"
+              >
+                Stored log file
               </button>
             )}
           </>
@@ -126,9 +155,14 @@ function RunDetailPage() {
                         {article.journal || "Journal not recorded"} · {article.publication_date || "date unknown"}
                       </p>
                       {article.duplicate_of && (
-                        <p className="mt-1 inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-semibold text-amber-800">
-                          Seen before in run {runLabel(duplicate?.search_run)}
-                        </p>
+                        <div className="mt-1">
+                          <p className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[10.5px] font-semibold text-amber-800">
+                            Seen before in run {runLabel(duplicate?.search_run)}
+                          </p>
+                          {article.duplicate_reason && (
+                            <p className="mt-0.5 text-[10px] text-[#64748B]">{article.duplicate_reason}</p>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-[11px] text-[#64748B]">{article.source_database}</td>
@@ -173,6 +207,10 @@ function RunDetailPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-4">
+        <ScanCard runId={runId} scans={scans} />
       </div>
 
       <ImportDialog

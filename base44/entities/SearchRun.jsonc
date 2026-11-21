@@ -67,6 +67,10 @@
       "type": "string",
       "format": "date"
     },
+    "log_file_uri": {
+      "type": "string",
+      "description": "Weekly search log PDF stored on the run"
+    },
     "notes": {
       "type": "string"
     }

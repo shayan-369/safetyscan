@@ -1,0 +1,121 @@
+{
+  "name": "Signal",
+  "type": "object",
+  "properties": {
+    "product": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "reaction": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "Auto flag",
+        "Manual"
+      ],
+      "enumColors": [
+        "blue",
+        "purple"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "New",
+        "Open",
+        "Ongoing",
+        "Closed - refuted",
+        "Closed - confirmed"
+      ],
+      "enumColors": [
+        "yellow",
+        "blue",
+        "purple",
+        "gray",
+        "green"
+      ]
+    },
+    "assessment": {
+      "type": "string"
+    },
+    "actions": {
+      "type": "string"
+    },
+    "opened_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "closed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "owner": {
+      "type": "string"
+    },
+    "nullified": {
+      "type": "boolean",
+      "default": false
+    },
+    "nullified_reason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "product",
+    "reaction",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

@@ -6,7 +6,7 @@
       "type": "string",
       "enum": [
         "Weekly",
-        "Bi-weekly",
+        "Every 2 weeks",
         "Monthly"
       ],
       "enumColors": [
@@ -16,10 +16,13 @@
       ],
       "default": "Weekly"
     },
+    "frequency_rationale": {
+      "type": "string",
+      "description": "Written risk-based rationale for any interval longer than every 2 weeks"
+    },
     "confidence_threshold": {
       "type": "number",
-      "default": 85,
-      "description": "Below this, AI exclusions are sent to human review"
+      "default": 85
     },
     "qc_sample_percentage": {
       "type": "number",
@@ -30,15 +33,21 @@
       "default": true
     },
     "reviewer_email": {
-      "type": "string",
-      "description": "Medical Reviewer notification address"
+      "type": "string"
     },
     "deadline_alert_days": {
       "type": "array",
       "items": {
         "type": "number"
-      },
-      "description": "Days before due date to alert"
+      }
+    },
+    "ai_model": {
+      "type": "string",
+      "default": "automatic"
+    },
+    "triage_prompt_version": {
+      "type": "string",
+      "default": "v1"
     }
   },
   "required": [

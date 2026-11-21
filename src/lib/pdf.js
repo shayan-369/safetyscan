@@ -38,7 +38,7 @@ function header(doc, title, subtitle) {
   return y;
 }
 
-export function downloadWeeklySearchLog({ run, strategies, articles, triages, decisions }) {
+export function downloadWeeklySearchLog({ run, strategies, articles, triages, decisions, scans = [] }, options = {}) {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   let y = header(
     doc,
@@ -73,12 +73,27 @@ export function downloadWeeklySearchLog({ run, strategies, articles, triages, de
   if (!run.total_hits) y = addText(doc, "0 results: no records matched the strategies in this period.", y, { size: 9, bold: true });
 
   y += 6;
+  y = addText(doc, "Environmental scanning", y, { size: 11, bold: true });
+  if (scans.length) {
+    scans.forEach((scan) => {
+      y = addText(
+        doc,
+        `• ${formatDate(scan.date)} · ${scan.source} · ${scan.query_checked || "—"} · ${scan.result_count ?? 0} result(s) · ${scan.outcome || "outcome not recorded"}${scan.optional_note ? ` · ${scan.optional_note}` : ""}`,
+        y,
+        { size: 8.5, color: [51, 65, 85] },
+      );
+    });
+  } else {
+    y = addText(doc, "No environmental scans were logged for this run.", y, { size: 9 });
+  }
+
+  y += 6;
   y = addText(doc, "Record detail", y, { size: 11, bold: true });
   articles.forEach((article, index) => {
     const triage = triages.find((t) => t.article === article.id);
     const decision = decisions.find((d) => d.article === article.id);
     const reason = article.duplicate_of
-      ? "Duplicate of an earlier record (linked, not deleted)"
+      ? `Duplicate: ${article.duplicate_reason || "linked to an earlier record"} (linked, not deleted)`
       : decision
         ? `Human decision: ${decision.final_category}${decision.comment ? ` — ${decision.comment}` : ""}`
         : triage
@@ -101,6 +116,7 @@ export function downloadWeeklySearchLog({ run, strategies, articles, triages, de
     color: [148, 163, 184],
   });
 
+  if (options.upload) return doc.output("blob");
   doc.save(`SafetyScan-weekly-search-log-${run.date_range_end || "run"}.pdf`);
 }
 

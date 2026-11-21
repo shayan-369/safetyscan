@@ -8,7 +8,8 @@ import PageHeader from "@/components/pv/PageHeader";
 import StatusPill from "@/components/pv/StatusPill";
 import ProductDialog from "@/components/products/ProductDialog";
 import StrategyDialog from "@/components/products/StrategyDialog";
-import { ChevronDown, History, Pencil, Plus } from "lucide-react";
+import { AlertTriangle, ChevronDown, History, Pencil, Plus } from "lucide-react";
+import AgreementCard from "@/components/products/AgreementCard";
 
 export const Route = createFileRoute("/_authed/products")({
   head: () => ({ meta: [{ title: "Products & strategies · SafetyScan PV" }] }),
@@ -82,6 +83,10 @@ function ProductsPage() {
                       <StatusPill tone="navy">{product.product_type}</StatusPill>
                       {product.division && <StatusPill tone="slate">{product.division}</StatusPill>}
                       {product.active === false && <StatusPill tone="amber">Inactive</StatusPill>}
+                      {product.imported && <StatusPill tone="purple">Imported</StatusPill>}
+                      {product.portfolio_status === "To be confirmed by an Admin" && (
+                        <StatusPill tone="amber">Type to be confirmed</StatusPill>
+                      )}
                     </div>
                     <p className="mt-1 text-[12px] text-[#64748B]">
                       {product.licence_number || "No licence number"} · {(product.active_ingredients || []).join(", ") || "no ingredients recorded"}
@@ -122,6 +127,13 @@ function ProductsPage() {
                     <span className="text-[11px] text-[#94A3B8]">No labelled reactions recorded</span>
                   )}
                 </div>
+
+                {!product.label_complete && (
+                  <p className="mt-2 flex items-start gap-1.5 rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900">
+                    <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                    Label reactions incomplete - every reaction will be treated as unexpected.
+                  </p>
+                )}
 
                 <div className="mt-4 rounded-md border border-[#E2E8F0] bg-[#F8FAFC] p-3">
                   {active ? (
@@ -173,6 +185,8 @@ function ProductsPage() {
                     </div>
                   )}
                 </div>
+
+                <AgreementCard product={product} isAdmin={isAdmin} />
               </section>
             );
           })}
