@@ -15,6 +15,18 @@ import TriagePane from "@/components/review/TriagePane";
 import FullTextCard from "@/components/review/FullTextCard";
 import PatientsCard from "@/components/review/PatientsCard";
 import NotOurProductDialog from "@/components/review/NotOurProductDialog";
+import ProductInfoCard from "@/components/review/ProductInfoCard";
+
+const TAB_LABEL = {
+  "Potential Reportable Case": "Potential reportable case",
+  "Safety Information/Possible Signal": "Safety information",
+  "Not Relevant": "Not relevant",
+};
+const TAB_BADGE = {
+  "Potential Reportable Case": "bg-[#DC2626] text-white",
+  "Safety Information/Possible Signal": "bg-amber-500 text-white",
+  "Not Relevant": "bg-slate-400 text-white",
+};
 
 export const Route = createFileRoute("/_authed/review")({
   head: () => ({ meta: [{ title: "Review queue · SafetyScan PV" }] }),
@@ -35,6 +47,7 @@ function ReviewPage() {
   const [overrideSignal, setOverrideSignal] = useState(0);
   const [busy, setBusy] = useState(false);
   const [notOurOpen, setNotOurOpen] = useState(false);
+  const [tab, setTab] = useState(null);
 
   const articles = data?.articles ?? [];
   const triages = data?.triages ?? [];
@@ -62,8 +75,25 @@ function ReviewPage() {
       });
   }, [articles, triages, decisions, handled, triageByArticle]);
 
-  const selected = queue.find((a) => a.id === selectedId) || queue[0] || null;
+  // Articles the AI has not triaged yet sit in the reportable tab so they are never missed.
+  const tabOf = (article) => triageByArticle.get(article.id)?.category || "Potential Reportable Case";
+  const counts = CATEGORY_ORDER.map((category) => ({
+    category,
+    count: queue.filter((a) => tabOf(a) === category).length,
+  }));
+  const activeTab = tab || counts.find((c) => c.count > 0)?.category || CATEGORY_ORDER[0];
+  const tabQueue = queue.filter((a) => tabOf(a) === activeTab);
+
+  const selected = tabQueue.find((a) => a.id === selectedId) || tabQueue[0] || null;
   const selectedTriage = selected ? triageByArticle.get(selected.id) : null;
+  const matchedProducts = selected
+    ? products.filter((p) => (selected.matched_products || []).includes(p.id))
+    : [];
+
+  const switchTab = (category) => {
+    setTab(category);
+    setSelectedId(null);
+  };
 
   useEffect(() => {
     setComment("");
@@ -76,9 +106,9 @@ function ReviewPage() {
   }, [selected?.id, selectedTriage?.category]);
 
   const move = (direction) => {
-    if (!queue.length) return;
-    const index = queue.findIndex((a) => a.id === selected?.id);
-    const next = queue[Math.min(queue.length - 1, Math.max(0, index + direction))];
+    if (!tabQueue.length) return;
+    const index = tabQueue.findIndex((a) => a.id === selected?.id);
+    const next = tabQueue[Math.min(tabQueue.length - 1, Math.max(0, index + direction))];
     setSelectedId(next?.id ?? null);
   };
 
@@ -103,7 +133,10 @@ function ReviewPage() {
           ...options,
         },
       });
+      const index = tabQueue.findIndex((a) => a.id === selected.id);
+      const nextInTab = tabQueue[index + 1] || tabQueue[index - 1] || null;
       setHandled((prev) => [...prev, selected.id]);
+      setSelectedId(nextInTab?.id ?? null);
       setNotOurOpen(false);
       const created = result.caseNumbers?.length || 0;
       toast.success(
@@ -153,33 +186,47 @@ function ReviewPage() {
       } else if (event.key === "o") {
         event.preventDefault();
         setOverrideSignal((n) => n + 1);
+      } else if (["1", "2", "3"].includes(event.key)) {
+        event.preventDefault();
+        switchTab(CATEGORY_ORDER[Number(event.key) - 1]);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  const counts = CATEGORY_ORDER.map((category) => ({
-    category,
-    count: queue.filter((a) => triageByArticle.get(a.id)?.category === category).length,
-  }));
-
   return (
     <>
       <PageHeader
         eyebrow="Human decision required"
         title="Review queue"
-        description="Articles are ordered Potential Reportable Case first, then Safety Information, then AI exclusions selected for quality control. Every decision is recorded against your name."
-        actions={
-          <div className="flex flex-wrap gap-1.5">
-            {counts.map((entry) => (
-              <StatusPill key={entry.category} tone={CATEGORY_TONE[entry.category] || "slate"}>
-                {entry.count} {entry.category.replace("Safety Information/Possible Signal", "Safety info")}
-              </StatusPill>
-            ))}
-          </div>
-        }
+        description="Articles are grouped by the AI's suggested category. The Not relevant tab holds the AI exclusions picked for quality control. Every decision is recorded against your name."
       />
+
+      {!isLoading && queue.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-1 border-b border-[#E2E8F0]" role="tablist">
+          {counts.map((entry, index) => {
+            const active = entry.category === activeTab;
+            return (
+              <button
+                key={entry.category}
+                role="tab"
+                aria-selected={active}
+                onClick={() => switchTab(entry.category)}
+                className={`-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-[12.5px] font-semibold transition-colors ${
+                  active ? "border-[#0D9488] text-[#0F172A]" : "border-transparent text-[#64748B] hover:text-[#0F172A]"
+                }`}
+              >
+                {TAB_LABEL[entry.category]}
+                <span className={`min-w-[20px] rounded-full px-1.5 py-0.5 text-center text-[10.5px] font-bold ${TAB_BADGE[entry.category]}`}>
+                  {entry.count}
+                </span>
+                <span className="hidden text-[10px] font-normal text-[#94A3B8] sm:inline">{index + 1}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {isLoading ? (
         <p className="text-[13px] text-[#64748B]">Loading the queue…</p>
@@ -197,10 +244,15 @@ function ReviewPage() {
           <div className="lg:col-span-3">
             <div className="surface-card overflow-hidden">
               <div className="border-b border-[#E2E8F0] px-3 py-2">
-                <p className="label-caps">{queue.length} awaiting decision</p>
+                <p className="label-caps">
+                  {tabQueue.length} awaiting decision · {TAB_LABEL[activeTab]}
+                </p>
               </div>
+              {!tabQueue.length && (
+                <p className="px-3 py-6 text-center text-[12px] text-[#64748B]">Nothing waiting in this tab.</p>
+              )}
               <ul className="max-h-[70vh] divide-y divide-[#E2E8F0] overflow-y-auto">
-                {queue.map((article) => {
+                {tabQueue.map((article) => {
                   const triage = triageByArticle.get(article.id);
                   const active = article.id === selected?.id;
                   return (
@@ -241,12 +293,21 @@ function ReviewPage() {
             </div>
           </div>
 
+          {!selected ? (
+            <div className="lg:col-span-9">
+              <section className="surface-card p-8 text-center text-[12px] text-[#64748B]">
+                Nothing to review in this tab. Choose another tab above.
+              </section>
+            </div>
+          ) : (
+          <>
           <div className="space-y-4 lg:col-span-5">
             <ArticlePane article={selected} triage={selectedTriage} products={products} />
             <FullTextCard article={selected} onSaved={() => queryClient.invalidateQueries({ queryKey: ["pv"] })} />
           </div>
 
           <div className="space-y-4 lg:col-span-4">
+            <ProductInfoCard products={matchedProducts} triage={selectedTriage} />
             <TriagePane
               triage={selectedTriage}
               comment={comment}
@@ -260,6 +321,8 @@ function ReviewPage() {
             />
             <PatientsCard triage={selectedTriage} onNotOurProduct={() => setNotOurOpen(true)} />
           </div>
+          </>
+          )}
         </div>
       )}
 
