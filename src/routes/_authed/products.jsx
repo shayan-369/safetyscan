@@ -89,7 +89,7 @@ function ProductsPage() {
                       )}
                     </div>
                     <p className="mt-1 text-[12px] text-[#64748B]">
-                      {product.licence_number || "No licence number"} · {(product.active_ingredients || []).join(", ") || "no ingredients recorded"}
+                      {product.product_type === "Natural Health Product" ? "NPN" : "DIN"} {product.licence_number || "not recorded"}
                     </p>
                   </div>
                   {isAdmin && (
@@ -117,7 +117,31 @@ function ProductsPage() {
                   </p>
                 )}
 
-                <div className="mt-3 flex flex-wrap gap-1.5">
+                <div className="mt-3 grid gap-2 sm:grid-cols-[150px_1fr]">
+                  <span className="label-caps pt-1">Active ingredients</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(product.active_ingredients || []).map((ingredient) => (
+                      <span key={ingredient} className="rounded bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-900">
+                        {ingredient}
+                      </span>
+                    ))}
+                    {!(product.active_ingredients || []).length && (
+                      <span className="text-[11px] font-semibold text-amber-700">No ingredients recorded</span>
+                    )}
+                  </div>
+
+                  <span className="label-caps pt-1">Also searched as</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(product.synonyms || []).map((synonym) => (
+                      <span key={synonym} className="rounded border border-sky-200 bg-white px-2 py-0.5 text-[11px] font-medium text-sky-900">
+                        {synonym}
+                      </span>
+                    ))}
+                    {!(product.synonyms || []).length && <span className="text-[11px] text-[#94A3B8]">No other names recorded</span>}
+                  </div>
+
+                  <span className="label-caps pt-1">Labelled reactions</span>
+                  <div className="flex flex-wrap gap-1.5">
                   {(product.labelled_reactions || []).map((reaction) => (
                     <span key={reaction} className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-[#475569]">
                       {reaction}
@@ -126,6 +150,7 @@ function ProductsPage() {
                   {!(product.labelled_reactions || []).length && (
                     <span className="text-[11px] text-[#94A3B8]">No labelled reactions recorded</span>
                   )}
+                  </div>
                 </div>
 
                 {!product.label_complete && (
