@@ -16,7 +16,7 @@ import StatusPill from "@/components/pv/StatusPill";
 import ImportDialog from "@/components/runs/ImportDialog";
 import ScanCard from "@/components/runs/ScanCard";
 
-export const Route = createFileRoute("/_authed/runs/$runId")({
+export const Route = createFileRoute("/_authed/runs_/$runId")({
   head: () => ({ meta: [{ title: "Run detail · SafetyScan PV" }] }),
   component: RunDetailPage,
 });

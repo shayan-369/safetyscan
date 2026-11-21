@@ -30,7 +30,7 @@ import FollowUpCard from "@/components/case/FollowUpCard";
 import ApprovalCard from "@/components/case/ApprovalCard";
 import NullifyCard from "@/components/case/NullifyCard";
 
-export const Route = createFileRoute("/_authed/cases/$caseId")({
+export const Route = createFileRoute("/_authed/cases_/$caseId")({
   head: () => ({ meta: [{ title: "Case detail · SafetyScan PV" }] }),
   component: CaseDetailPage,
 });
