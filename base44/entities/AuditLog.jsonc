@@ -1,0 +1,78 @@
+{
+  "name": "AuditLog",
+  "type": "object",
+  "properties": {
+    "who": {
+      "type": "string",
+      "description": "User name or system"
+    },
+    "action": {
+      "type": "string",
+      "description": "What happened"
+    },
+    "entity": {
+      "type": "string",
+      "description": "Entity name"
+    },
+    "entity_id": {
+      "type": "string"
+    },
+    "before": {
+      "type": "string",
+      "description": "JSON snapshot before the change"
+    },
+    "after": {
+      "type": "string",
+      "description": "JSON snapshot after the change"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "who",
+    "action",
+    "entity"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "user_condition": {
+        "role": "audit-immutable"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "audit-immutable"
+      }
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "name": "ReviewDecision",
+  "type": "object",
+  "properties": {
+    "article": {
+      "type": "string"
+    },
+    "reviewer": {
+      "type": "string"
+    },
+    "reviewer_role": {
+      "type": "string"
+    },
+    "decision": {
+      "type": "string",
+      "enum": [
+        "Confirm AI",
+        "Override"
+      ],
+      "enumColors": [
+        "green",
+        "yellow"
+      ]
+    },
+    "final_category": {
+      "type": "string",
+      "enum": [
+        "Potential Reportable Case",
+        "Safety Information/Possible Signal",
+        "Not Relevant"
+      ],
+      "enumColors": [
+        "red",
+        "yellow",
+        "gray"
+      ]
+    },
+    "comment": {
+      "type": "string"
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "qc_sample": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "required": [
+    "article",
+    "decision",
+    "final_category"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

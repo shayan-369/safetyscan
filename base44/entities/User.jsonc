@@ -1,0 +1,27 @@
+{
+  "properties": {
+    "role": {
+      "type": "string",
+      "description": "The role of the user in the app",
+      "enum": [
+        "admin",
+        "user"
+      ]
+    },
+    "pv_role": {
+      "type": "string",
+      "description": "Pharmacovigilance role: PV Associate, Medical Reviewer, Admin or Inspector",
+      "enum": [
+        "PV Associate",
+        "Medical Reviewer",
+        "Admin",
+        "Inspector"
+      ]
+    }
+  },
+  "required": [
+    "role"
+  ],
+  "name": "User",
+  "type": "object"
+}

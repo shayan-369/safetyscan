@@ -1,0 +1,198 @@
+{
+  "name": "Triage",
+  "type": "object",
+  "properties": {
+    "article": {
+      "type": "string",
+      "description": "Article id"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "Potential Reportable Case",
+        "Safety Information/Possible Signal",
+        "Not Relevant"
+      ],
+      "enumColors": [
+        "red",
+        "yellow",
+        "gray"
+      ]
+    },
+    "not_relevant_reason": {
+      "type": "string",
+      "enum": [
+        "Animal or lab study",
+        "Different product or ingredient",
+        "No adverse event",
+        "Review article with no new cases",
+        "Other"
+      ],
+      "enumColors": [
+        "gray",
+        "gray",
+        "gray",
+        "gray",
+        "gray"
+      ]
+    },
+    "human_subject": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no",
+        "unclear"
+      ],
+      "enumColors": [
+        "green",
+        "red",
+        "yellow"
+      ]
+    },
+    "adverse_event_present": {
+      "type": "boolean"
+    },
+    "identifiable_patient": {
+      "type": "boolean"
+    },
+    "identifiable_reporter": {
+      "type": "boolean"
+    },
+    "suspect_product_named": {
+      "type": "boolean"
+    },
+    "brand_identified": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no"
+      ],
+      "enumColors": [
+        "green",
+        "yellow"
+      ]
+    },
+    "reactions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "seriousness": {
+      "type": "string",
+      "enum": [
+        "Serious",
+        "Non-serious",
+        "Unclear"
+      ],
+      "enumColors": [
+        "red",
+        "green",
+        "yellow"
+      ]
+    },
+    "seriousness_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expectedness": {
+      "type": "string",
+      "enum": [
+        "Expected",
+        "Unexpected",
+        "Unclear"
+      ],
+      "enumColors": [
+        "green",
+        "yellow",
+        "yellow"
+      ]
+    },
+    "occurred_in": {
+      "type": "string",
+      "enum": [
+        "Canada",
+        "Foreign",
+        "Unknown"
+      ],
+      "enumColors": [
+        "blue",
+        "gray",
+        "yellow"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "description": "0-100"
+    },
+    "evidence_quotes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ai_summary": {
+      "type": "string"
+    },
+    "qc_sample": {
+      "type": "boolean",
+      "default": false,
+      "description": "Randomly selected for the quality-control review of AI exclusions"
+    }
+  },
+  "required": [
+    "article",
+    "category"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

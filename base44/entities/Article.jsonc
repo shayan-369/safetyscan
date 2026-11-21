@@ -1,0 +1,131 @@
+{
+  "name": "Article",
+  "type": "object",
+  "properties": {
+    "search_run": {
+      "type": "string",
+      "description": "SearchRun id"
+    },
+    "source_database": {
+      "type": "string",
+      "enum": [
+        "PubMed",
+        "Embase import",
+        "Canada Vigilance import",
+        "Other"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "pink",
+        "gray"
+      ]
+    },
+    "pmid": {
+      "type": "string"
+    },
+    "doi": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "authors": {
+      "type": "string"
+    },
+    "journal": {
+      "type": "string"
+    },
+    "publication_date": {
+      "type": "string"
+    },
+    "abstract": {
+      "type": "string"
+    },
+    "full_text_url": {
+      "type": "string"
+    },
+    "country": {
+      "type": "string"
+    },
+    "matched_products": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "duplicate_of": {
+      "type": "string",
+      "description": "Earlier Article id this record duplicates"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "New",
+        "AI Triaged",
+        "In Review",
+        "Decided"
+      ],
+      "enumColors": [
+        "gray",
+        "blue",
+        "yellow",
+        "green"
+      ]
+    }
+  },
+  "required": [
+    "search_run",
+    "title",
+    "source_database"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

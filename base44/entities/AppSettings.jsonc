@@ -1,0 +1,78 @@
+{
+  "name": "AppSettings",
+  "type": "object",
+  "properties": {
+    "search_frequency": {
+      "type": "string",
+      "enum": [
+        "Weekly",
+        "Bi-weekly",
+        "Monthly"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "gray"
+      ],
+      "default": "Weekly"
+    },
+    "confidence_threshold": {
+      "type": "number",
+      "default": 85,
+      "description": "Below this, AI exclusions are sent to human review"
+    },
+    "qc_sample_percentage": {
+      "type": "number",
+      "default": 10
+    },
+    "email_alerts": {
+      "type": "boolean",
+      "default": true
+    },
+    "reviewer_email": {
+      "type": "string",
+      "description": "Medical Reviewer notification address"
+    },
+    "deadline_alert_days": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "description": "Days before due date to alert"
+    }
+  },
+  "required": [
+    "search_frequency"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

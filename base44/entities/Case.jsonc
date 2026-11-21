@@ -1,0 +1,198 @@
+{
+  "name": "Case",
+  "type": "object",
+  "properties": {
+    "case_number": {
+      "type": "string",
+      "description": "Auto-generated PV case number"
+    },
+    "article": {
+      "type": "string"
+    },
+    "product": {
+      "type": "string"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "patient_initials_or_descriptor": {
+      "type": "string"
+    },
+    "age": {
+      "type": "number"
+    },
+    "sex": {
+      "type": "string",
+      "enum": [
+        "Female",
+        "Male",
+        "Other",
+        "Unknown"
+      ],
+      "enumColors": [
+        "pink",
+        "blue",
+        "purple",
+        "gray"
+      ]
+    },
+    "reporter": {
+      "type": "string",
+      "description": "Article authors"
+    },
+    "reactions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "seriousness": {
+      "type": "string",
+      "enum": [
+        "Serious",
+        "Non-serious",
+        "Unclear"
+      ],
+      "enumColors": [
+        "red",
+        "green",
+        "yellow"
+      ]
+    },
+    "seriousness_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "expectedness": {
+      "type": "string",
+      "enum": [
+        "Expected",
+        "Unexpected",
+        "Unclear"
+      ],
+      "enumColors": [
+        "green",
+        "yellow",
+        "yellow"
+      ]
+    },
+    "occurred_in": {
+      "type": "string",
+      "enum": [
+        "Canada",
+        "Foreign",
+        "Unknown"
+      ],
+      "enumColors": [
+        "blue",
+        "gray",
+        "yellow"
+      ]
+    },
+    "day_zero": {
+      "type": "string",
+      "format": "date",
+      "description": "Date all four minimum criteria were first known"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date",
+      "description": "day zero + 15 calendar days when reportable"
+    },
+    "reportable_to_health_canada": {
+      "type": "boolean"
+    },
+    "brand_identified": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no"
+      ],
+      "enumColors": [
+        "green",
+        "yellow"
+      ]
+    },
+    "narrative": {
+      "type": "string",
+      "description": "AI-drafted narrative, editable by reviewers"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Draft",
+        "Medical Review",
+        "Ready to Submit",
+        "Submitted",
+        "Closed"
+      ],
+      "enumColors": [
+        "gray",
+        "yellow",
+        "blue",
+        "purple",
+        "green"
+      ]
+    },
+    "submitted_date": {
+      "type": "string",
+      "format": "date"
+    }
+  },
+  "required": [
+    "case_number",
+    "product",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

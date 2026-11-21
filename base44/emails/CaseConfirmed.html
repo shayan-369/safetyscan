@@ -1,0 +1,72 @@
+<mjml>
+  <mj-head>
+    <mj-title>Reportable case confirmed: {{case_number}}</mj-title>
+    <mj-preview>{{product_name}} · {{seriousness}} · due {{due_date}}</mj-preview>
+    <mj-attributes>
+      <mj-all font-family="Arial, Helvetica, sans-serif" />
+      <mj-text color="#1E293B" font-size="15px" line-height="1.6" padding="0" />
+      <mj-button background-color="#0D9488" color="#FFFFFF" border-radius="4px" font-weight="700" inner-padding="14px 26px" align="left" />
+    </mj-attributes>
+  </mj-head>
+  <mj-body background-color="#F8FAFC">
+    <mj-section background-color="#0F172A" padding="20px 36px">
+      <mj-column>
+        <mj-text color="#FFFFFF" font-size="16px" font-weight="700">SafetyScan PV</mj-text>
+        <mj-text color="#94A3B8" font-size="11px" padding="4px 0 0">Pharmacovigilance surveillance</mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section background-color="#FFFFFF" padding="36px 36px 8px">
+      <mj-column>
+        <mj-text font-size="26px" font-weight="700" color="#0F172A" line-height="1.2">
+          A reportable case needs medical review
+        </mj-text>
+        <mj-text color="#64748B" padding="8px 0 0">
+          {{reviewer}} confirmed a potential reportable case from this week's literature run.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section background-color="#FFFFFF" padding="16px 36px">
+      <mj-column>
+        <mj-table cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #E2E8F0;color:#64748B;font-size:13px;">Case number</td>
+            <td style="padding:10px 0;border-bottom:1px solid #E2E8F0;color:#0F172A;font-size:13px;font-weight:700;text-align:right;">{{case_number}}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #E2E8F0;color:#64748B;font-size:13px;">Product</td>
+            <td style="padding:10px 0;border-bottom:1px solid #E2E8F0;color:#0F172A;font-size:13px;text-align:right;">{{product_name}}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;border-bottom:1px solid #E2E8F0;color:#64748B;font-size:13px;">Seriousness</td>
+            <td style="padding:10px 0;border-bottom:1px solid #E2E8F0;color:#DC2626;font-size:13px;font-weight:700;text-align:right;">{{seriousness}}</td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;color:#64748B;font-size:13px;">Health Canada due date</td>
+            <td style="padding:10px 0;color:#DC2626;font-size:13px;font-weight:700;text-align:right;">{{due_date}}</td>
+          </tr>
+        </mj-table>
+      </mj-column>
+    </mj-section>
+
+    <mj-section background-color="#FFFFFF" padding="8px 36px 36px">
+      <mj-column>
+        <mj-text font-size="13px" font-weight="700" color="#0D9488">
+          Sign in to SafetyScan PV and open Cases to review this record.
+        </mj-text>
+        <mj-text color="#64748B" font-size="12px" padding="18px 0 0">
+          The case narrative was drafted by AI and is labelled as a suggestion until a Medical Reviewer signs off.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section background-color="#F8FAFC" padding="20px 36px">
+      <mj-column>
+        <mj-text color="#64748B" font-size="11px">
+          You are receiving this because you are a reviewer in SafetyScan PV.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>

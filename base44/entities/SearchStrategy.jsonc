@@ -1,0 +1,85 @@
+{
+  "name": "SearchStrategy",
+  "type": "object",
+  "properties": {
+    "product": {
+      "type": "string",
+      "description": "Product id this strategy searches for"
+    },
+    "product_name": {
+      "type": "string",
+      "description": "Product brand name at time of version"
+    },
+    "database": {
+      "type": "string",
+      "enum": [
+        "PubMed",
+        "Embase import",
+        "Canada Vigilance import",
+        "Other"
+      ],
+      "enumColors": [
+        "blue",
+        "purple",
+        "pink",
+        "gray"
+      ]
+    },
+    "query_string": {
+      "type": "string",
+      "description": "Exact query executed for this version"
+    },
+    "version": {
+      "type": "number",
+      "default": 1
+    },
+    "change_reason": {
+      "type": "string",
+      "description": "Why this version was created"
+    },
+    "created_by": {
+      "type": "string"
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    }
+  },
+  "required": [
+    "product",
+    "database",
+    "query_string",
+    "version"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

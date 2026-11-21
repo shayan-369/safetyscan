@@ -1,0 +1,128 @@
+{
+  "name": "SearchRun",
+  "type": "object",
+  "properties": {
+    "run_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "date_range_start": {
+      "type": "string",
+      "format": "date"
+    },
+    "date_range_end": {
+      "type": "string",
+      "format": "date"
+    },
+    "frequency": {
+      "type": "string",
+      "default": "Weekly"
+    },
+    "strategies_used": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Strategy id and version used, e.g. '<id> v3 \u00b7 PubMed'"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Running",
+        "Awaiting Review",
+        "Completed",
+        "Closed"
+      ],
+      "enumColors": [
+        "blue",
+        "yellow",
+        "purple",
+        "green"
+      ]
+    },
+    "total_hits": {
+      "type": "number",
+      "default": 0
+    },
+    "duplicates_removed": {
+      "type": "number",
+      "default": 0
+    },
+    "ai_excluded": {
+      "type": "number",
+      "default": 0
+    },
+    "sent_to_review": {
+      "type": "number",
+      "default": 0
+    },
+    "cases_created": {
+      "type": "number",
+      "default": 0
+    },
+    "closed_by": {
+      "type": "string"
+    },
+    "closed_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "date_range_start",
+    "date_range_end",
+    "status"
+  ],
+  "rls": {
+    "read": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "user_condition": {
+            "role": "user"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}
